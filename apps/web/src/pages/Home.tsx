@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { signInTestAccount } from "../chain/session";
 import type { Role } from "../chain/wallet";
+import WalletPanel from "./WalletPanel";
 
 export default function Home() {
   const [liveNote, setLiveNote] = useState<string | null>(null);
@@ -51,11 +52,13 @@ export default function Home() {
           Make proof
         </button>
       </div>
+      <WalletPanel />
       <div style={{ marginTop: 32, border: "1px solid #999", padding: 16 }}>
-        <p style={{ fontSize: 20, margin: "4px 0" }}>Live local network (test)</p>
+        <p style={{ fontSize: 20, margin: "4px 0" }}>Test accounts (local checks only)</p>
         <p>
-          Sign in with a test account to write bills and pay on the local
-          Aztec network. Fake money only. When no one is signed in, the
+          These are shared test accounts for checking things on the local
+          Aztec network. They are not a real wallet, and everyone can see
+          their keys. Fake money only. When no one is signed in, the
           buttons above use fake data on this page only.
         </p>
         <div style={{ display: "grid", gap: 8 }}>

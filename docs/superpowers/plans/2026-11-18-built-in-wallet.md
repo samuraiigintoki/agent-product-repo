@@ -81,3 +81,10 @@ small, tested hard, and reviewed twice before it ships.
   seal and open round trip, wrong password and one changed byte
   fail with one plain message, short password refused, backup
   code round trip, storage holds only the sealed box.
+- Task 3 done 2026-11-18. WalletPanel on Home: create with
+  the gone-for-good warning first, backup code shown once,
+  unlock, lock, restore, remove with a confirm step. Test
+  accounts relabeled "Test accounts (local checks only)".
+  Address worked out on device, no network. If the address
+  math cannot run, the wallet still opens and the address is
+  filled in when the chain session connects. 12 new tests.
