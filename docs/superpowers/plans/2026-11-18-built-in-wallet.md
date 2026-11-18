@@ -68,3 +68,16 @@ small, tested hard, and reviewed twice before it ships.
 - New tests pass, old suite passes, build clean, two self
   reviews, trial copy checked, owner walks create, unlock,
   restore on the trial copy before any merge.
+
+## Progress
+- Task 1 spike done 2026-11-18. Fresh random account: address
+  made, same address back from the same keys in a new wallet
+  (src/chain/freshAccount.test.ts, green). First send fails
+  until the first fee is covered ("Not enough balance for fee
+  payer"). Task 4 must add a fee sponsor step for first run;
+  sponsored account creation already proved on public testnet.
+  The send test stays skipped with the reason written in it.
+- Task 2 done 2026-11-18. chain/keyVault.ts with 9 tests green:
+  seal and open round trip, wrong password and one changed byte
+  fail with one plain message, short password refused, backup
+  code round trip, storage holds only the sealed box.
