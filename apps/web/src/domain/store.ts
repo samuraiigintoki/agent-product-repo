@@ -20,7 +20,15 @@ export function today(): string {
 
 export function sixMonthsFrom(dateText: string): string {
   const date = new Date(`${dateText}T00:00:00Z`);
+  const day = date.getUTCDate();
+  date.setUTCDate(1);
   date.setUTCMonth(date.getUTCMonth() + 6);
+  // Clamp to the last day of the target month, so Aug 31 plus
+  // six months lands on Feb 28, not Mar 3.
+  const lastDay = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  date.setUTCDate(Math.min(day, lastDay));
   return date.toISOString().slice(0, 10);
 }
 
@@ -44,6 +52,11 @@ export function createStore() {
       const index = invoices.findIndex((invoice) => invoice.id === id);
       if (index === -1) {
         return undefined;
+      }
+      if (invoices[index].state === "paid") {
+        // One pay per bill. A second pay changes nothing, and
+        // the first paid date stays locked.
+        return invoices[index];
       }
       const paid = markPaid(invoices[index], invoices[index].amount, paidOn);
       invoices[index] = paid;

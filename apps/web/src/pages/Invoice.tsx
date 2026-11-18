@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { createInvoiceLive, hasChainSession } from "../chain/session";
 import type { Store } from "../domain/store";
+import {
+  parseAmountInput,
+  validateInvoiceInput,
+  type InvoiceInputIssue,
+} from "../domain/invoice";
 
 export default function Invoice({ store }: { store: Store }) {
   const [workTitle, setWorkTitle] = useState("");
@@ -8,6 +13,7 @@ export default function Invoice({ store }: { store: Store }) {
   const [clientMark, setClientMark] = useState("");
   const [link, setLink] = useState<string | null>(null);
   const [chainNote, setChainNote] = useState<string | null>(null);
+  const [issue, setIssue] = useState<InvoiceInputIssue | null>(null);
 
   return (
     <main style={{ fontFamily: "sans-serif", maxWidth: 640, margin: "40px auto", padding: 16 }}>
@@ -18,8 +24,14 @@ export default function Invoice({ store }: { store: Store }) {
           <input
             style={{ fontSize: 18, padding: 8 }}
             value={workTitle}
+            aria-describedby={issue?.field === "workTitle" ? "workTitle-error" : undefined}
             onChange={(event) => setWorkTitle(event.target.value)}
           />
+          {issue?.field === "workTitle" && (
+            <span id="workTitle-error" role="alert" style={{ color: "#b00020", fontSize: 16 }}>
+              {issue.message}
+            </span>
+          )}
         </label>
         <label style={{ display: "grid", gap: 4, fontSize: 18 }}>
           Amount

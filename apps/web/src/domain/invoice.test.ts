@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createInvoice, markPaid } from "./invoice";
+import { createInvoice, markPaid, parseAmountInput, validateInvoiceInput } from "./invoice";
 
 describe("createInvoice", () => {
   it("starts unpaid and keeps the work title, amount, and client mark", () => {
@@ -65,5 +65,48 @@ describe("markPaid", () => {
     });
     markPaid(invoice, 1250, "2026-11-18");
     expect(invoice.state).toBe("unpaid");
+  });
+});
+
+describe("invoice input checks (50 user run fixes)", () => {
+  it("rejects an empty work title", () => {
+    expect(() =>
+      createInvoice({ workTitle: "  ", amount: 100, clientMark: "A" }),
+    ).toThrow(/title/);
+  });
+
+  it("rejects zero, negative, decimal, and letter amounts", () => {
+    for (const amount of [0, -50, 12.5, Number("abc")]) {
+      expect(() =>
+        createInvoice({ workTitle: "Job", amount, clientMark: "A" }),
+      ).toThrow(/whole number above zero/);
+    }
+  });
+
+  it("parses amounts the way people type them", () => {
+    expect(parseAmountInput("1,250")).toBe(1250);
+    expect(parseAmountInput(" 1250 ")).toBe(1250);
+    expect(Number.isNaN(parseAmountInput("abc"))).toBe(true);
+    expect(parseAmountInput("")).toBe(0);
+  });
+
+  it("points at the field that is wrong", () => {
+    expect(
+      validateInvoiceInput({ workTitle: "", amount: 100 })?.field,
+    ).toBe("workTitle");
+    expect(
+      validateInvoiceInput({ workTitle: "Job", amount: 0 })?.field,
+    ).toBe("amount");
+    expect(validateInvoiceInput({ workTitle: "Job", amount: 100 })).toBeNull();
+  });
+
+  it("trims the title and client mark it stores", () => {
+    const invoice = createInvoice({
+      workTitle: "  Logo design  ",
+      amount: 100,
+      clientMark: "  Client A ",
+    });
+    expect(invoice.workTitle).toBe("Logo design");
+    expect(invoice.clientMark).toBe("Client A");
   });
 });

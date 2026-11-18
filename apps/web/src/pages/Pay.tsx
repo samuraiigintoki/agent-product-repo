@@ -21,7 +21,6 @@ export default function Pay({ store, id }: { store: Store; id: string }) {
       <h1 style={{ fontSize: 28 }}>Pay this bill</h1>
       <p style={{ fontSize: 22 }}>{invoice.workTitle}</p>
       <p style={{ fontSize: 22 }}>Amount: {invoice.amount}</p>
-      <p style={{ fontSize: 18 }}>For: {invoice.clientMark}</p>
       <p>Fake test money only. This pay step is private in the real build.</p>
       {chainNote !== null && <p style={{ fontSize: 18 }}>{chainNote}</p>}
       {invoice.state === "paid" ? (
