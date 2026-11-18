@@ -8,6 +8,7 @@ import {
   createSinglePaymentClaim,
   type SinglePaymentClaim,
 } from "./claim";
+import { invoiceFromPayLink, type PayLinkData } from "./payLink";
 
 export interface StoredClaim {
   id: string;
@@ -47,6 +48,17 @@ export function createStore() {
     },
     getInvoice(id: string): Invoice | undefined {
       return invoices.find((invoice) => invoice.id === id);
+    },
+    importInvoice(data: PayLinkData): Invoice {
+      // A bill arriving through a pay link joins this store
+      // once. Opening the same link again never makes a copy.
+      const existing = invoices.find((invoice) => invoice.id === data.id);
+      if (existing) {
+        return existing;
+      }
+      const invoice = invoiceFromPayLink(data);
+      invoices.push(invoice);
+      return invoice;
     },
     payInvoice(id: string, paidOn: string = today()): Invoice | undefined {
       const index = invoices.findIndex((invoice) => invoice.id === id);

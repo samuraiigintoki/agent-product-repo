@@ -30,7 +30,7 @@ describe("full click path with fake data", () => {
 
     const invoice = store.invoices[0];
     expect(invoice.state).toBe("unpaid");
-    expect(screen.getByText(new RegExp(`#/pay/${invoice.id}`))).toBeTruthy();
+    expect(screen.getByText(/#\/pay\/p\./)).toBeTruthy();
 
     goTo(`#/pay/${invoice.id}`);
     expect(screen.getByText("Logo design")).toBeTruthy();
