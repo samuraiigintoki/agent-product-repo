@@ -17,6 +17,9 @@
     "vitest": "^2.1.0"
   },
   "dependencies": {
+    "@aztec-labs/accounts": "^6.0.0",
+    "@aztec-labs/aztec.js": "^6.0.0",
+    "@aztec-labs/wallets": "^6.0.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   }

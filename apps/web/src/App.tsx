@@ -6,6 +6,7 @@ import Pay from "./pages/Pay";
 import MyPay from "./pages/MyPay";
 import MakeProof from "./pages/MakeProof";
 import CheckProof from "./pages/CheckProof";
+import { readMyReceiptsLive } from "./chain/session";
 
 function currentRoute(): string {
   const hash = window.location.hash.replace(/^#/, "");
@@ -33,7 +34,7 @@ export default function App({ store }: { store: Store }) {
     return <Invoice store={store} />;
   }
   if (route === "/mypay") {
-    return <MyPay store={store} />;
+    return <MyPay store={store} readLive={readMyReceiptsLive} />;
   }
   if (route === "/proof") {
     return <MakeProof store={store} />;

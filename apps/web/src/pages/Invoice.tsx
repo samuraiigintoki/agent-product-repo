@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createInvoiceLive, hasChainSession } from "../chain/session";
 import type { Store } from "../domain/store";
 
 export default function Invoice({ store }: { store: Store }) {
@@ -6,6 +7,7 @@ export default function Invoice({ store }: { store: Store }) {
   const [amount, setAmount] = useState("");
   const [clientMark, setClientMark] = useState("");
   const [link, setLink] = useState<string | null>(null);
+  const [chainNote, setChainNote] = useState<string | null>(null);
 
   return (
     <main style={{ fontFamily: "sans-serif", maxWidth: 640, margin: "40px auto", padding: 16 }}>
@@ -38,18 +40,31 @@ export default function Invoice({ store }: { store: Store }) {
         </label>
         <button
           style={{ fontSize: 20, padding: 14 }}
-          onClick={() => {
+          onClick={async () => {
             const invoice = store.addInvoice({
               workTitle,
               amount: Number(amount),
               clientMark,
             });
             setLink(`#/pay/${invoice.id}`);
+            if (hasChainSession()) {
+              setChainNote("Writing the bill on the local network. This can take a few seconds.");
+              try {
+                await createInvoiceLive({
+                  webInvoiceId: invoice.id,
+                  amount: invoice.amount,
+                });
+                setChainNote("This bill is also written on the local network.");
+              } catch {
+                setChainNote("The bill was made here, but the local network write did not finish.");
+              }
+            }
           }}
         >
           Make invoice
         </button>
       </div>
+      {chainNote !== null && <p style={{ fontSize: 18 }}>{chainNote}</p>}
       {link !== null && (
         <div style={{ marginTop: 24 }}>
           <p style={{ fontSize: 18 }}>Send this link to your client:</p>
