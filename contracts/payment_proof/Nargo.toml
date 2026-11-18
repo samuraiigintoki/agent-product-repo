@@ -1,0 +1,2 @@
+[workspace]
+members = ["payment_proof_contract", "payment_proof_test"]
