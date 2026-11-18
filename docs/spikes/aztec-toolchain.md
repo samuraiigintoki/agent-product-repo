@@ -33,14 +33,18 @@ Noir compiler 1.0.0-rc.3, Node v24.15.0.
   private, public 75, private 25, then 10 moved private from
   the first account to the second account. That move landed
   in block 8 and the first account then read private 15.
-- One honest snag: the second account's wallet read 0 right
-  after that move even after waiting, registering the sender,
-  and retrying. In the fast contract test tool below the same
-  two-party private note read works fine, so this looks like a
-  wallet sync delay in separate wallet runs, not a rule in the
-  network itself. It is written here so it is not hidden.
-  Contract tests, not wallet runs, carry the proof for steps
-  like this from now on.
+- One honest snag: the second account's wallet read 0 after
+  that move. This was tried again on a fresh chain with two
+  30 second waits, with the sender registered, and with the
+  balance read from the first account too. It still read 0,
+  while the first account read 15 as expected. So the send
+  landed, but the second account could not see its new note
+  through this wallet tool setup. In the fast contract test
+  tool below the same two-party private note read works
+  fine. The fix path for later tasks is the official two
+  wallet setup from the Aztec guide, where each side runs
+  its own wallet view and both sides register each other.
+  It is written here so it is not hidden.
 - Custom note trial: a throwaway contract with a note holding
   bill mark 42, amount 1250, payer mark 7 and paid block 9.
   A fast contract test gave the note to the worker account and
@@ -65,6 +69,10 @@ This sandbox has about 2 GB of memory and 2 cores. Rules learned:
 - Do not run the local network and the contract test tool at
   the same time. Together they ran the sandbox out of memory
   and the test run was killed. Run one heavy tool at a time.
+  The contract test pair (test server plus test runner) also
+  needed more memory than this box has. A 3 GB swap file on
+  disk, which is slow extra memory, let it pass. Only 219 MB
+  of the swap was used.
 - The contract test tool needs `nc` (netcat, a tiny network
   checker) which is not installed here. A small stand-in placed
   in /tmp fixed it. It is a sandbox gap, not an Aztec fault.
