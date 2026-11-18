@@ -1,4 +1,5 @@
 import type { ChainSession, Role } from "./wallet";
+import { AZTEC_NODE_URL } from "./settings";
 import type { ReceiptView } from "./invoiceChain";
 
 // Holds the live local network session for the pages. The chain
@@ -13,7 +14,7 @@ export async function signInTestAccount(nextRole: Role): Promise<void> {
   role = nextRole;
   if (!session) {
     const { createChainSession } = await import("./wallet");
-    session = await createChainSession();
+    session = await createChainSession(AZTEC_NODE_URL);
   }
 }
 
