@@ -1,10 +1,45 @@
 import { useState } from "react";
 import type { Store } from "../domain/store";
+import { sixMonthsFrom, today } from "../domain/store";
+import { billIdFor, hasChainSession } from "../chain/session";
+import { buildClaimForBill } from "../chain/proofChain";
 
 export default function MakeProof({ store }: { store: Store }) {
   const [showAmount, setShowAmount] = useState(false);
   const [link, setLink] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
   const paidInvoices = store.invoices.filter((invoice) => invoice.state === "paid");
+
+  const makeProof = async (invoiceId: string) => {
+    const invoice = store.getInvoice(invoiceId);
+    if (!invoice) {
+      return;
+    }
+    store.addClaim(invoice.id, showAmount);
+    const claim = buildClaimForBill(invoice, showAmount, sixMonthsFrom(today()));
+    const billId = billIdFor(invoice.id);
+    const payload = btoa(
+      encodeURIComponent(JSON.stringify({ claim, billId })),
+    );
+    const checkLink = `#/check/p.${payload}`;
+    if (hasChainSession()) {
+      setNote("Writing the proof mark on the local network. This can take a few seconds.");
+      try {
+        const { markProofOnChain } = await import("../chain/proofChain");
+        const { currentSessionForProof } = await import("../chain/session");
+        const liveSession = await currentSessionForProof();
+        if (liveSession) {
+          await markProofOnChain(liveSession, claim, billId);
+          setNote("Proof mark is on the local network. Only a hash and the expiry went public.");
+        } else {
+          setNote(null);
+        }
+      } catch {
+        setNote("The proof was made here, but the network mark did not finish.");
+      }
+    }
+    setLink(checkLink);
+  };
 
   return (
     <main style={{ fontFamily: "sans-serif", maxWidth: 640, margin: "40px auto", padding: 16 }}>
@@ -31,18 +66,14 @@ export default function MakeProof({ store }: { store: Store }) {
             <p style={{ fontSize: 18, margin: "4px 0" }}>Paid in full on {invoice.paidOn}.</p>
             <button
               style={{ fontSize: 18, padding: 12 }}
-              onClick={() => {
-                const stored = store.addClaim(invoice.id, showAmount);
-                if (stored) {
-                  setLink(`#/check/${stored.id}`);
-                }
-              }}
+              onClick={() => makeProof(invoice.id)}
             >
               Make proof
             </button>
           </div>
         ))}
       </div>
+      {note !== null && <p style={{ fontSize: 18 }}>{note}</p>}
       {link !== null && (
         <div style={{ marginTop: 24 }}>
           <p style={{ fontSize: 18 }}>Send this check link to the person who asked:</p>

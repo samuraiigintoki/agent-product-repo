@@ -93,3 +93,16 @@ unconstrained fn test_public_record_hides_amount_payer_and_worker() {
     assert(amount_hash != worker.to_field());
     assert(amount_hash != 0);
 }
+
+#[test]
+unconstrained fn test_proof_mark_round_trip() {
+    let (mut env, contract_address, payer, _, _) = setup();
+
+    env.call_public(payer, Main::at(contract_address).mark_proof(777, 20270518));
+
+    let stored = env.view_public(Main::at(contract_address).proof_expiry(777));
+    assert_eq(stored, 20270518);
+
+    let missing = env.view_public(Main::at(contract_address).proof_expiry(778));
+    assert_eq(missing, 0);
+}

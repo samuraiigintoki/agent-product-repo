@@ -43,6 +43,10 @@ pub contract Main {
         // are never stored here in plain form.
         amount_hashes: Map<Field, PublicMutable<Field, Context>, Context>,
         paid_flags: Map<Field, PublicMutable<bool, Context>, Context>,
+        // Public proof marks, keyed by a hash of the claim.
+        // Only the claim hash and its expiry number are stored.
+        // Claim words and any amount never go in here.
+        proof_marks: Map<Field, PublicMutable<Field, Context>, Context>,
     }
 
     #[initializer]
@@ -92,6 +96,20 @@ pub contract Main {
         );
         assert(self.storage.paid_flags.at(key).read() == false, "bill is already paid");
         self.storage.paid_flags.at(key).write(true);
+    }
+
+    // Writes one proof mark in public: the claim hash and the
+    // day the proof runs out, as a YYYYMMDD number. Nothing else.
+    #[external("public")]
+    fn mark_proof(claim_hash: Field, expires_at: Field) {
+        assert(self.storage.proof_marks.at(claim_hash).read() == 0, "proof is already marked");
+        self.storage.proof_marks.at(claim_hash).write(expires_at);
+    }
+
+    #[external("public")]
+    #[view]
+    fn proof_expiry(claim_hash: Field) -> Field {
+        self.storage.proof_marks.at(claim_hash).read()
     }
 
     #[external("public")]

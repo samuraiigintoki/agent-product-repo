@@ -73,3 +73,20 @@ export async function readMyReceiptsLive(): Promise<ReceiptView | null> {
   const { readReceiptsOnChain } = await import("./invoiceChain");
   return readReceiptsOnChain(session, role);
 }
+
+export async function checkMarkedProofLive(input: {
+  claim: import("../domain/claim").SinglePaymentClaim;
+  billId: number;
+}): Promise<"valid" | "broken" | null> {
+  if (!session) {
+    return null;
+  }
+  const { checkProof } = await import("./proofChain");
+  const { today } = await import("../domain/store");
+  const result = await checkProof(session, input.claim, input.billId, today());
+  return result === "valid" ? "valid" : "broken";
+}
+
+export async function currentSessionForProof(): Promise<ChainSession | null> {
+  return session;
+}
