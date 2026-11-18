@@ -88,3 +88,40 @@ small, tested hard, and reviewed twice before it ships.
   Address worked out on device, no network. If the address
   math cannot run, the wallet still opens and the address is
   filled in when the chain session connects. 12 new tests.
+- Task 4 done 2026-11-18. When the user wallet is open, a
+  "Connect my wallet to the network" step makes the worker
+  the user's own wallet (chain/session.ts signInWithUserWallet,
+  chain/wallet.ts takes the open key material). Client and
+  third roles stay test accounts, per this plan. First run
+  fees: chain/feeSponsor.ts finds the test network sponsor
+  contract at its one fixed address (worked out from the
+  contract code and shared salt, never typed in; it matched
+  the local network's printed sponsor address exactly) and
+  worker sends from a user wallet pay through it, because a
+  fresh wallet holds no fee money. The local deploy of our
+  own contract is sponsored the same way. Locking or removing
+  the wallet drops the live session, and worker actions check
+  the wallet is still open before writing. Live proof:
+  chain/userFlow.test.ts on the local network, a fresh random
+  user wallet wrote bill 77, the test client paid, the user
+  wallet read its receipt back, the third account saw nothing
+  (2 tests, about 17 seconds). The old test account flow
+  (chain/localFlow.test.ts) still passes unchanged.
+
+## Threat note for this slice (written 2026-11-18)
+- A thief with the sealed box still needs the password.
+  The box is PBKDF2 (210,000 rounds) plus AES-GCM; a short
+  or guessed password is the weak point, so the screens set
+  an 8 character floor and never hint which part failed.
+- A thief with the open page can act as the wallet, same as
+  any wallet. Locking drops the plain keys and the live
+  network session; the screens say to lock when done.
+- Forgotten password plus lost backup code means the wallet
+  is gone for good. The create screen says this before the
+  wallet is made, not after.
+- Key material is never logged, never put in test data in
+  the repo, and never leaves the device. Live tests make
+  fresh random keys in memory and store nothing.
+- The fee sponsor pays fees for anyone by design on test
+  networks. That is fine with fake money; it is not a main
+  network answer and no real money wording exists anywhere.

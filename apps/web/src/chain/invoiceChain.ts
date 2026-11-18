@@ -14,7 +14,12 @@ export async function createInvoiceOnChain(
 ): Promise<void> {
   await session.contracts.worker.methods
     .create_invoice(input.billId, input.amount, input.dueMark)
-    .send({ from: session.accounts.worker });
+    .send({
+      from: session.accounts.worker,
+      ...(session.workerFee
+        ? { fee: { paymentMethod: session.workerFee } }
+        : {}),
+    });
 }
 
 export async function readReceiptsOnChain(

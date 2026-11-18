@@ -3,10 +3,12 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import WalletPanel from "./WalletPanel";
 import { lockUserWallet } from "../chain/userWallet";
+import { dropChainSession } from "../chain/session";
 
 beforeEach(() => {
   window.localStorage.clear();
   lockUserWallet();
+  dropChainSession();
 });
 afterEach(cleanup);
 
@@ -33,6 +35,9 @@ describe("wallet panel", () => {
     );
     expect(screen.queryByText(/pp-backup\./)).toBeNull();
     expect(screen.getByText(/Wallet open\./)).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Connect my wallet to the network" }),
+    ).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Lock my wallet" }));
     expect(screen.getByText(/Wallet locked/)).toBeTruthy();

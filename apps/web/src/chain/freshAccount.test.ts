@@ -54,9 +54,11 @@ describe("fresh random account (wallet spike)", () => {
   // first fee. Test accounts arrive pre funded; user accounts
   // do not. On the public test network the sponsored fee path
   // already worked for account creation (Task 7, wallet tool).
-  // So the first run flow needs a fee sponsor step. That is
-  // Task 4 design work, not a blocker for the key box. This
-  // send test stays off until that step exists.
+  // So the first run flow needs a fee sponsor step. That step
+  // now exists (chain/feeSponsor.ts, Task 4) and the full first
+  // send is proven end to end in chain/userFlow.test.ts, where
+  // a fresh user wallet writes a bill with the sponsor paying
+  // the fee. This spike copy stays off; userFlow is the proof.
   it.skip("sends its first bill once the first fee is covered", async () => {
     expect(true).toBe(true);
   });

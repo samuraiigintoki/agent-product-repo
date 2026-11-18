@@ -11,6 +11,11 @@ import {
   shortAddress,
   type WalletStorage,
 } from "../chain/userWallet";
+import {
+  dropChainSession,
+  signInWithUserWallet,
+  workerIsUserWallet,
+} from "../chain/session";
 
 // The wallet area on the home page. Plain screens only: the
 // design pass comes with the dashboard slice. Words are kept
@@ -63,6 +68,19 @@ export default function WalletPanel({
       await unlockUserWallet(password, storage);
       setPassword("");
       setNote("Wallet open.");
+      refresh();
+    } catch (error) {
+      fail(error);
+    }
+  };
+
+  const connect = async () => {
+    setNote("Connecting your wallet to the network. This can take a few seconds.");
+    try {
+      await signInWithUserWallet();
+      setNote(
+        "Your wallet is connected. New bills are written from your wallet, and the test network covers the fee while your wallet holds no fee money.",
+      );
       refresh();
     } catch (error) {
       fail(error);
@@ -184,11 +202,22 @@ export default function WalletPanel({
             Wallet open.
             {address ? ` Address: ${shortAddress(address)}` : ""}
           </p>
+          {workerIsUserWallet() ? (
+            <p style={{ fontSize: 18 }}>
+              Connected to the network as the worker. New bills are
+              written from this wallet.
+            </p>
+          ) : (
+            <button style={buttonStyle} onClick={connect}>
+              Connect my wallet to the network
+            </button>
+          )}
           <button
             style={buttonStyle}
             onClick={() => {
               lockUserWallet();
-              setNote("Wallet locked.");
+              dropChainSession();
+              setNote("Wallet locked. The network connection is closed too.");
               refresh();
             }}
           >
@@ -203,6 +232,7 @@ export default function WalletPanel({
               style={buttonStyle}
               onClick={() => {
                 removeUserWallet(storage);
+                dropChainSession();
                 setConfirmRemove(false);
                 setNote(
                   "Wallet removed from this device. Your backup code can bring it back.",
