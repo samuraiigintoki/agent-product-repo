@@ -3,8 +3,9 @@ import { EmbeddedWallet } from "@aztec-labs/wallets/embedded";
 import { getInitialTestAccountsData } from "@aztec-labs/accounts/testing";
 import { Contract } from "@aztec-labs/aztec.js/contracts";
 import { loadContractArtifact, type NoirCompiledContract } from "@aztec-labs/aztec.js/abi";
-import type { AztecAddress } from "@aztec-labs/aztec.js/addresses";
+import { AztecAddress } from "@aztec-labs/aztec.js/addresses";
 import artifactJson from "./payment_proof_artifact.json";
+import { AZTEC_CONTRACT_ADDRESS, AZTEC_NODE_URL } from "./settings";
 
 const artifact = loadContractArtifact(artifactJson as unknown as NoirCompiledContract);
 
@@ -25,7 +26,7 @@ export interface ChainSession {
 // see notes from a sender, it must register that sender, and
 // before it can call a contract, it must register the contract.
 export async function createChainSession(
-  nodeUrl = "http://localhost:8080",
+  nodeUrl = AZTEC_NODE_URL,
 ): Promise<ChainSession> {
   const node = createAztecNodeClient(nodeUrl);
   await waitForNode(node);
@@ -49,15 +50,26 @@ export async function createChainSession(
     accounts[role] = account.address;
   }
 
-  const { contract } = await Contract.deploy(wallets.worker, artifact, [])
-    .send({ from: accounts.worker });
+  // Two ways to reach the contract, picked by settings only:
+  // a pinned address (public network, contract already deployed)
+  // or a fresh deploy (local network).
+  let contractAddress: AztecAddress;
+  let deployedHere = false;
+  if (AZTEC_CONTRACT_ADDRESS !== "") {
+    contractAddress = AztecAddress.schema.parse(AZTEC_CONTRACT_ADDRESS);
+  } else {
+    const { contract } = await Contract.deploy(wallets.worker, artifact, [])
+      .send({ from: accounts.worker });
+    contractAddress = contract.address;
+    deployedHere = true;
+  }
 
-  const instance = await node.getContract(contract.address);
+  const instance = await node.getContract(contractAddress);
   if (!instance) {
-    throw new Error("Contract was deployed but the node cannot see it.");
+    throw new Error("The contract cannot be seen on this network.");
   }
   for (const role of ROLES) {
-    if (role !== "worker") {
+    if (!(deployedHere && role === "worker")) {
       await wallets[role].registerContract(instance, artifact);
     }
     // Every wallet registers every other account as a known sender,
@@ -71,7 +83,7 @@ export async function createChainSession(
 
   const contracts = {} as Record<Role, Contract>;
   for (const role of ROLES) {
-    contracts[role] = await Contract.at(contract.address, artifact, wallets[role]);
+    contracts[role] = await Contract.at(contractAddress, artifact, wallets[role]);
   }
 
   return {
@@ -79,6 +91,6 @@ export async function createChainSession(
     wallets,
     accounts,
     contracts,
-    contractAddress: contract.address,
+    contractAddress,
   };
 }
