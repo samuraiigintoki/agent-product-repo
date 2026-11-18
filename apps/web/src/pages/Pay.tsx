@@ -1,11 +1,28 @@
 import { useState } from "react";
 import { hasChainSession, payInvoiceLive } from "../chain/session";
 import type { Store } from "../domain/store";
+import { decodePayLink } from "../domain/payLink";
 
 export default function Pay({ store, id }: { store: Store; id: string }) {
   const [, setPaidTick] = useState(0);
   const [chainNote, setChainNote] = useState<string | null>(null);
-  const invoice = store.getInvoice(id);
+  // A carrying link brings its bill with it. Import it once so
+  // this device can show and pay it. Old short links fall back
+  // to a plain store look up.
+  const linked = id.startsWith("p.") ? decodePayLink(id) : null;
+  const linkBroken = id.startsWith("p.") && linked === null;
+  const invoice = linked
+    ? store.importInvoice(linked)
+    : store.getInvoice(id);
+
+  if (linkBroken) {
+    return (
+      <main style={{ fontFamily: "sans-serif", maxWidth: 640, margin: "40px auto", padding: 16 }}>
+        <h1 style={{ fontSize: 28 }}>This bill link does not work.</h1>
+        <p style={{ fontSize: 18 }}>Ask the worker to send the link again.</p>
+      </main>
+    );
+  }
 
   if (!invoice) {
     return (

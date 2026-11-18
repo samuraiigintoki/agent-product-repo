@@ -6,6 +6,7 @@ import {
   validateInvoiceInput,
   type InvoiceInputIssue,
 } from "../domain/invoice";
+import { encodePayLink } from "../domain/payLink";
 
 export default function Invoice({ store }: { store: Store }) {
   const [workTitle, setWorkTitle] = useState("");
@@ -58,7 +59,7 @@ export default function Invoice({ store }: { store: Store }) {
               amount: Number(amount),
               clientMark,
             });
-            setLink(`#/pay/${invoice.id}`);
+            setLink(`#/pay/${encodePayLink(invoice)}`);
             if (hasChainSession()) {
               setChainNote("Writing the bill on the local network. This can take a few seconds.");
               try {
