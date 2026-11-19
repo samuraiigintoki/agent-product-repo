@@ -66,7 +66,7 @@ export default function Invoice({ store }: { store: Store }) {
             });
             setLink(`#/pay/${encodePayLink(invoice)}`);
             if (hasChainSession()) {
-              setChainNote("Writing the bill on the local network. This can take a few seconds.");
+              setChainNote("Writing the bill on the network. This can take a few seconds.");
               try {
                 await createInvoiceLive({
                   webInvoiceId: invoice.id,
@@ -83,9 +83,9 @@ export default function Invoice({ store }: { store: Store }) {
                     })}`,
                   );
                 }
-                setChainNote("This bill is also written on the local network.");
+                setChainNote("This bill is also written on the network.");
               } catch {
-                setChainNote("The bill was made here, but the local network write did not finish.");
+                setChainNote("The bill was made here, but the network write did not finish.");
               }
             }
           }}

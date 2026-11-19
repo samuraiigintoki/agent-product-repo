@@ -62,7 +62,7 @@ export default function Pay({ store, id }: { store: Store; id: string }) {
               );
             } else if (hasChainSession()) {
               setChainNote(
-                "Paying in private on the local network. Your device does the private work, so this can take a few seconds. Please wait.",
+                "Paying in private on the network. Your device does the private work, so this can take a few seconds. Please wait.",
               );
               try {
                 const paid = await payInvoiceLive({
@@ -77,11 +77,11 @@ export default function Pay({ store, id }: { store: Store; id: string }) {
                 });
                 setChainNote(
                   paid
-                    ? `Paid on the local network too. That step took about ${paid.seconds} seconds.`
+                    ? `Paid on the network too. That step took about ${paid.seconds} seconds.`
                     : "Paid here only.",
                 );
               } catch {
-                setChainNote("Paid here, but the local network pay did not finish.");
+                setChainNote("Paid here, but the network pay did not finish.");
               }
             }
           }}

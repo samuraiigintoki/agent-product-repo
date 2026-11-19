@@ -1,4 +1,8 @@
 // @vitest-environment node
+// PLUMBING CHECK ONLY, on shared test accounts and a local
+// network. It checks the proof wiring cheaply. It is not
+// product proof; real wallet proof lives in the testnet
+// spikes and the slice acceptance run.
 import { describe, expect, it } from "vitest";
 import { createChainSession, type ChainSession } from "./wallet";
 import { createInvoiceOnChain, readReceiptsOnChain } from "./invoiceChain";

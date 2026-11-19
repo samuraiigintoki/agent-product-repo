@@ -1,10 +1,11 @@
 // @vitest-environment node
-// Live flow, Task 4 of the built in wallet plan. Needs the
-// local Aztec network on localhost:8080. The worker is a FRESH
-// user wallet (random keys made here, never test keys, never
-// stored). Its first network fee is covered by the local
-// network fee sponsor. The client stays a test account, as the
-// plan allows until the client gets its own wallet slice.
+// PLUMBING CHECK ONLY. Needs the local Aztec network on
+// localhost:8080. The worker is a FRESH user wallet (random
+// keys made here, never test keys, never stored). Its first
+// network fee is covered by the local network fee sponsor.
+// The client stays a test account, so this checks wiring,
+// not the real product path. Product proof lives in the
+// testnet spikes and the slice acceptance run.
 // Run on its own: npx vitest run src/chain/userFlow.test.ts
 import { describe, expect, it } from "vitest";
 import { createKeyMaterial } from "./keyVault";

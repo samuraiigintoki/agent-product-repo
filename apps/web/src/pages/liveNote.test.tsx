@@ -7,7 +7,7 @@ import MyPay from "./MyPay";
 import { createStore } from "../domain/store";
 
 describe("live network read on My pay", () => {
-  it("says plainly when this account has no pay on the local network", async () => {
+  it("says plainly when this account has no pay on the network", async () => {
     const store = createStore();
     render(
       <MyPay
@@ -22,12 +22,12 @@ describe("live network read on My pay", () => {
       />,
     );
     fireEvent.click(
-      screen.getByRole("button", { name: "Read my pay from the local network" }),
+      screen.getByRole("button", { name: "Read my pay from the network" }),
     );
     expect(
-      await screen.findByText(/no pay records on the local network/),
+      await screen.findByText(/no pay records on the network/),
     ).toBeTruthy();
-    expect(screen.getByText(/wrong test account/)).toBeTruthy();
+    expect(screen.getByText(/after a client pays/)).toBeTruthy();
   });
 
   it("shows a receipt read from the local network", async () => {
@@ -45,7 +45,7 @@ describe("live network read on My pay", () => {
       />,
     );
     fireEvent.click(
-      screen.getByRole("button", { name: "Read my pay from the local network" }),
+      screen.getByRole("button", { name: "Read my pay from the network" }),
     );
     expect(await screen.findByText(/Bill 42/)).toBeTruthy();
     expect(screen.getByText(/1250/)).toBeTruthy();

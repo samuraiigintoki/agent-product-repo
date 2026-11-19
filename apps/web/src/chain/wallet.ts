@@ -55,16 +55,19 @@ function parseUserKeys(material: KeyMaterial): {
   }
 }
 
-// Sign in is test accounts only, on the local network, with fake
-// money. Each role gets its own wallet and private note store,
-// following the official two wallet guide: before a wallet can
-// see notes from a sender, it must register that sender, and
-// before it can call a contract, it must register the contract.
+// Builds one chain session. Each role gets its own wallet and
+// private note store, following the official two wallet guide:
+// before a wallet can see notes from a sender, it must register
+// that sender, and before it can call a contract, it must
+// register the contract.
 //
-// When userMaterial is given, the role named by userRole is
-// the user's own wallet instead of a test account. The user's
-// key material is used only inside this call and inside the
-// session wallet it creates; it is never logged or stored.
+// In the app this is only ever called with userMaterial, so
+// the role named by userRole is the user's own wallet. Called
+// without userMaterial it builds shared test accounts, and
+// that path exists for code tests only (plumbing checks). No
+// app screen can reach it. The user's key material is used
+// only inside this call and inside the session wallet it
+// creates; it is never logged or stored.
 export async function createChainSession(
   nodeUrl = AZTEC_NODE_URL,
   userMaterial?: KeyMaterial,

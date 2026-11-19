@@ -222,6 +222,18 @@ unit tests say.
   made bill 116075, the app session client paid by link
   values in about 28s, receipt read back. Fast suite 61
   green, type check and build clean.
+- Task 5 done 2026-11-19. The test sign in area is gone from
+  the home page, signInTestAccount is deleted, and no app
+  screen can reach a test account. The session comment states
+  the rule so nobody wires them back in. Test account flows
+  (localFlow, userFlow, proof tests) are relabeled PLUMBING
+  CHECK ONLY in their headers. Stale page words went with
+  them: no more "wrong test account" advice, and pages say
+  "the network" instead of "the local network", which stays
+  true when Task 7 flips the settings. A new home page test
+  proves no test sign in is offered and the wallet and main
+  actions remain. Fast suite 63 green, type check and build
+  clean.
 - Sepolia note: the owner holds Sepolia test accounts. They
   are the fallback if the sponsored fee path ever fails (fee
   money can be claimed from Sepolia). Keys never come into

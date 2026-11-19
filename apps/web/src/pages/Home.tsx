@@ -1,23 +1,6 @@
-import { useState } from "react";
-import { signInTestAccount } from "../chain/session";
-import type { Role } from "../chain/wallet";
 import WalletPanel from "./WalletPanel";
 
 export default function Home() {
-  const [liveNote, setLiveNote] = useState<string | null>(null);
-
-  const signIn = async (role: Role, label: string) => {
-    setLiveNote("Signing in. This can take a few seconds.");
-    try {
-      await signInTestAccount(role);
-      setLiveNote(`Signed in as the ${label} test account. Fake money only.`);
-    } catch {
-      setLiveNote(
-        "Could not reach the local network. It must be running on this computer first.",
-      );
-    }
-  };
-
   return (
     <main style={{ fontFamily: "sans-serif", maxWidth: 640, margin: "40px auto", padding: 16 }}>
       <h1 style={{ fontSize: 32 }}>Get paid in private. Prove it when you need to.</h1>
@@ -52,28 +35,12 @@ export default function Home() {
           Make proof
         </button>
       </div>
+      <p style={{ fontSize: 18, marginTop: 16 }}>
+        Until your wallet is connected below, these buttons work with
+        bills kept on this device only. Connect your wallet to write
+        bills and pay on the network.
+      </p>
       <WalletPanel />
-      <div style={{ marginTop: 32, border: "1px solid #999", padding: 16 }}>
-        <p style={{ fontSize: 20, margin: "4px 0" }}>Test accounts (local checks only)</p>
-        <p>
-          These are shared test accounts for checking things on the local
-          Aztec network. They are not a real wallet, and everyone can see
-          their keys. Fake money only. When no one is signed in, the
-          buttons above use fake data on this page only.
-        </p>
-        <div style={{ display: "grid", gap: 8 }}>
-          <button style={{ fontSize: 18, padding: 12 }} onClick={() => signIn("worker", "worker")}>
-            Sign in as worker (test)
-          </button>
-          <button style={{ fontSize: 18, padding: 12 }} onClick={() => signIn("client", "client")}>
-            Sign in as client (test)
-          </button>
-          <button style={{ fontSize: 18, padding: 12 }} onClick={() => signIn("other", "third")}>
-            Sign in as third account (test)
-          </button>
-        </div>
-        {liveNote !== null && <p style={{ fontSize: 18 }}>{liveNote}</p>}
-      </div>
     </main>
   );
 }

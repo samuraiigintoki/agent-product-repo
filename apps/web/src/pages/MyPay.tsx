@@ -50,9 +50,9 @@ export default function MyPay({
       </div>
       {readLive && (
         <div style={{ marginTop: 32, border: "1px solid #999", padding: 16 }}>
-          <p style={{ fontSize: 20, margin: "4px 0" }}>Live local network</p>
+          <p style={{ fontSize: 20, margin: "4px 0" }}>On the network</p>
           <button style={{ fontSize: 18, padding: 12 }} onClick={read}>
-            Read my pay from the local network
+            Read my pay from the network
           </button>
           {liveState === "reading" && (
             <p style={{ fontSize: 18 }}>
@@ -61,20 +61,20 @@ export default function MyPay({
           )}
           {liveState === "off" && (
             <p style={{ fontSize: 18 }}>
-              No one is signed in. Sign in on the home page first.
+              Your wallet is not connected. Connect it on the home page
+              first.
             </p>
           )}
           {liveState === "done" && live !== null && live.count === 0 && (
             <p style={{ fontSize: 18 }}>
-              This account has no pay records on the local network. If you
-              signed in with the wrong test account, that is why nothing
-              shows here.
+              This wallet has no pay records on the network yet. Receipts
+              show here after a client pays one of your bills.
             </p>
           )}
           {liveState === "done" && live !== null && live.count > 0 && (
             <p style={{ fontSize: 18 }}>
               Bill {live.billId}: paid in full, amount {live.amount}. Receipt
-              read from the local network.
+              read from the network.
             </p>
           )}
         </div>

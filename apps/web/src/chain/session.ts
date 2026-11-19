@@ -3,23 +3,15 @@ import { AZTEC_NODE_URL } from "./settings";
 import type { ReceiptView } from "./invoiceChain";
 import { isWalletOpen, openKeyMaterial } from "./userWallet";
 
-// Holds the live local network session for the pages. The chain
-// code is loaded only when a person signs in, so the fake data
-// path stays light. Fake money and test accounts only, except
-// the worker, which can be the user's own wallet once they
-// unlock it and connect.
+// Holds the live network session for the pages. The chain
+// code is loaded only when a person connects, so the on
+// device path stays light. The only way in is the user's own
+// wallet. Test accounts exist inside code tests only; no app
+// screen can sign in with one. Do not wire them back in.
 let session: ChainSession | null = null;
 let role: Role = "worker";
 const billIds = new Map<string, number>();
 let nextBillId = 1;
-
-export async function signInTestAccount(nextRole: Role): Promise<void> {
-  role = nextRole;
-  if (!session) {
-    const { createChainSession } = await import("./wallet");
-    session = await createChainSession(AZTEC_NODE_URL);
-  }
-}
 
 // Connects the unlocked user wallet in one role: "worker" to
 // make bills, "client" to pay one. One session holds one user
@@ -35,10 +27,6 @@ export async function signInWithUserWallet(
   const { createChainSession } = await import("./wallet");
   session = await createChainSession(AZTEC_NODE_URL, material, nextRole);
   role = nextRole;
-}
-
-export function signedInRole(): Role {
-  return role;
 }
 
 export function hasChainSession(): boolean {

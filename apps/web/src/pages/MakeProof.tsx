@@ -23,14 +23,14 @@ export default function MakeProof({ store }: { store: Store }) {
     );
     const checkLink = `#/check/p.${payload}`;
     if (hasChainSession()) {
-      setNote("Writing the proof mark on the local network. This can take a few seconds.");
+      setNote("Writing the proof mark on the network. This can take a few seconds.");
       try {
         const { markProofOnChain } = await import("../chain/proofChain");
         const { currentSessionForProof } = await import("../chain/session");
         const liveSession = await currentSessionForProof();
         if (liveSession) {
           await markProofOnChain(liveSession, claim, billId);
-          setNote("Proof mark is on the local network. Only a hash and the expiry went public.");
+          setNote("Proof mark is on the network. Only a hash and the expiry went public.");
         } else {
           setNote(null);
         }

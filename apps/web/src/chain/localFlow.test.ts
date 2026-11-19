@@ -1,10 +1,16 @@
 // @vitest-environment node
+// PLUMBING CHECK ONLY. This flow runs on shared test accounts
+// to check the chain wiring cheaply on a local network. It is
+// not product proof: no real user wallet takes part. Product
+// proof lives in the testnet spikes and the slice acceptance
+// run, per the owner rule that testing is real time with real
+// wallets.
 import { describe, expect, it } from "vitest";
 import { createChainSession, type ChainSession } from "./wallet";
 import { createInvoiceOnChain, readReceiptsOnChain } from "./invoiceChain";
 import { payInvoiceOnChain } from "./payChain";
 
-describe("local network flow", () => {
+describe("plumbing check: local network flow on test accounts", () => {
   it(
     "invoice on chain, client pays, worker sees the receipt, third account sees nothing",
     async () => {
