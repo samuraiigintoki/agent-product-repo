@@ -248,6 +248,22 @@ unit tests say.
   money can be claimed from Sepolia). Keys never come into
   chat. Any step needing those accounts is done by the owner.
 
+- Task 7 settings done 2026-11-19. Preview env on the
+  Vercel project now carries VITE_AZTEC_NODE_URL (public
+  test network node) and VITE_AZTEC_CONTRACT_ADDRESS (the
+  pinned contract). Trial deployment dpl_69XLy1bxfYTiKhhWYuRLQpGE9z5C
+  is READY and its build record shows both settings present.
+  Production env stays untouched until after merge.
+- Scripted acceptance run done 2026-11-19, through the real
+  app session code (apps/web/src/chain/testnetAcceptance.test.ts).
+  Two wallets in two storages. Worker connected in 7s, bill
+  written in 21s, client connected in 4s, paid by link
+  values in 19s, worker reconnected fresh in 5s, receipt
+  read in 1s with count 1 and the right bill and amount.
+  Still open before merge: the same walk in two real
+  browsers on the trial copy, by the owner. Browser proving
+  times are only known when that walk happens.
+
 ## Known limits that stay, named on purpose
 - The proof is still the device side tamper seal. The
   unforgeable on chain proof is its own later slice.
