@@ -206,6 +206,22 @@ unit tests say.
   worker made bill 248422, the app session client paid in
   about 21s, the worker read the receipt back. Fast suite
   green, type check and build clean.
+- Task 4 done 2026-11-19. Pay links are version 2 when the
+  bill is written on chain: worker wallet address, chain
+  bill number, amount, and title ride in the link
+  (domain/payLink.ts). The invoice page builds the final
+  link after the chain write lands. The pay page shows the
+  short worker address before paying and pays to the link
+  values through the session. Version 1 links still open and
+  show the bill, but with a live session the page says an old
+  link cannot be paid on the network and asks for a new one.
+  Decoder is strict: a link claiming version 2 with a bad
+  address or bill number is broken, and extra fields in a
+  link are never read back out. Live proof at
+  apps/web/src/chain/testnetPayLink.test.ts: stranger worker
+  made bill 116075, the app session client paid by link
+  values in about 28s, receipt read back. Fast suite 61
+  green, type check and build clean.
 - Sepolia note: the owner holds Sepolia test accounts. They
   are the fallback if the sponsored fee path ever fails (fee
   money can be claimed from Sepolia). Keys never come into

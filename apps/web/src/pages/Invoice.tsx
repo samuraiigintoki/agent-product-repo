@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { createInvoiceLive, hasChainSession } from "../chain/session";
+import {
+  billIdFor,
+  chainWorkerAddress,
+  createInvoiceLive,
+  hasChainSession,
+} from "../chain/session";
 import type { Store } from "../domain/store";
 import {
   parseAmountInput,
@@ -67,6 +72,17 @@ export default function Invoice({ store }: { store: Store }) {
                   webInvoiceId: invoice.id,
                   amount: invoice.amount,
                 });
+                // The bill now lives on chain, so build the
+                // final link with the real pay targets in it.
+                const worker = chainWorkerAddress();
+                if (worker) {
+                  setLink(
+                    `#/pay/${encodePayLink(invoice, {
+                      workerAddress: worker,
+                      billId: billIdFor(invoice.id),
+                    })}`,
+                  );
+                }
                 setChainNote("This bill is also written on the local network.");
               } catch {
                 setChainNote("The bill was made here, but the local network write did not finish.");

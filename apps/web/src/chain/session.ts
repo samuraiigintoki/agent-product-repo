@@ -106,9 +106,20 @@ export async function createInvoiceLive(input: {
   });
 }
 
+// The worker address of the live session, so the invoice
+// page can put the real pay targets into a version 2 link.
+export function chainWorkerAddress(): string | null {
+  return session ? session.accounts.worker.toString() : null;
+}
+
 export async function payInvoiceLive(input: {
   webInvoiceId: string;
   amount: number;
+  // Set when the pay link (version 2) names the worker and
+  // the chain bill number. Then the pay goes to that worker,
+  // who may live on a device this session has never met.
+  workerAddress?: string;
+  billId?: number;
 }): Promise<{ seconds: number } | null> {
   if (!session) {
     return null;
@@ -122,9 +133,14 @@ export async function payInvoiceLive(input: {
     throwIfUserWalletLocked();
   }
   const { payInvoiceOnChain } = await import("./payChain");
+  let worker = session.accounts.worker;
+  if (input.workerAddress) {
+    const { AztecAddress } = await import("@aztec-labs/aztec.js/addresses");
+    worker = AztecAddress.schema.parse(input.workerAddress);
+  }
   return payInvoiceOnChain(session, {
-    worker: session.accounts.worker,
-    billId: billIdFor(input.webInvoiceId),
+    worker,
+    billId: input.billId ?? billIdFor(input.webInvoiceId),
     amount: input.amount,
     payerMark: 99,
   });
