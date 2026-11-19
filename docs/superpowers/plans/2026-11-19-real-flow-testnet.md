@@ -282,6 +282,30 @@ unit tests say.
   of three). Owner re-walk on the rebuilt trial copy is the
   remaining step before merge.
 
+- Second browser bug found by the owner walk 2026-11-19,
+  fixed the same day. The invoice page showed a version 1
+  link at once, then swapped in the final version 2 link
+  after the network write. The owner copied the early link,
+  so browser two could only mark the bill paid on that
+  device. No network payment happened, and browser one
+  correctly read no receipt. Fix: with a live session the
+  invoice page shows no link until the network write lands,
+  the Make invoice button locks while writing, and only the
+  final link is shown. The bill now keeps its network pay
+  target (worker address and chain bill number, both public
+  pay information, never keys), so My pay can show the final
+  link again after leaving the page or refreshing. The pay
+  page now runs the network pay first and marks the bill
+  paid only after it lands; an old link no longer marks the
+  bill paid. A fresh page also asks the network how many
+  bills the wallet already has before choosing the next
+  bill number, so a reload cannot reuse a number the
+  network would reject. Fast suite 70 green, type check and
+  build clean, scripted acceptance passed again (bill 21s,
+  pay 21s). Owner re-walk with a new invoice is the
+  remaining step before merge. The first trial bill stays
+  unpaid on the network; its early link cannot be repaired.
+
 ## Known limits that stay, named on purpose
 - The proof is still the device side tamper seal. The
   unforgeable on chain proof is its own later slice.

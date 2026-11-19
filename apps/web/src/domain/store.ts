@@ -8,7 +8,11 @@ import {
   createSinglePaymentClaim,
   type SinglePaymentClaim,
 } from "./claim";
-import { invoiceFromPayLink, type PayLinkData } from "./payLink";
+import {
+  invoiceFromPayLink,
+  isWorkerAddress,
+  type PayLinkData,
+} from "./payLink";
 
 export interface StoredClaim {
   id: string;
@@ -68,7 +72,13 @@ function isStoredInvoice(value: unknown): value is Invoice {
     typeof bill.clientMark === "string" &&
     (bill.state === "paid" || bill.state === "unpaid") &&
     (bill.paidAmount === null || typeof bill.paidAmount === "number") &&
-    (bill.paidOn === null || typeof bill.paidOn === "string")
+    (bill.paidOn === null || typeof bill.paidOn === "string") &&
+    ((bill.chainWorkerAddress === undefined &&
+      bill.chainBillId === undefined) ||
+      (isWorkerAddress(bill.chainWorkerAddress) &&
+        typeof bill.chainBillId === "number" &&
+        Number.isInteger(bill.chainBillId) &&
+        bill.chainBillId > 0))
   );
 }
 
@@ -132,6 +142,28 @@ export function createStore(storage: BillStorage | null = defaultBillStorage()) 
       invoices.push(invoice);
       saveBills();
       return invoice;
+    },
+    markInvoiceOnChain(
+      id: string,
+      target: { workerAddress: string; billId: number },
+    ): Invoice | undefined {
+      const index = invoices.findIndex((invoice) => invoice.id === id);
+      if (
+        index === -1 ||
+        !isWorkerAddress(target.workerAddress) ||
+        !Number.isInteger(target.billId) ||
+        target.billId <= 0
+      ) {
+        return undefined;
+      }
+      const marked = {
+        ...invoices[index],
+        chainWorkerAddress: target.workerAddress,
+        chainBillId: target.billId,
+      };
+      invoices[index] = marked;
+      saveBills();
+      return marked;
     },
     payInvoice(id: string, paidOn: string = today()): Invoice | undefined {
       const index = invoices.findIndex((invoice) => invoice.id === id);

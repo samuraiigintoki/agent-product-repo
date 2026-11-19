@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Store } from "../domain/store";
+import { encodePayLink } from "../domain/payLink";
 import type { ReceiptView } from "../chain/invoiceChain";
 
 export default function MyPay({
@@ -35,18 +36,47 @@ export default function MyPay({
         <p style={{ fontSize: 18 }}>No bills yet. Make your first invoice from the home page.</p>
       )}
       <div style={{ display: "grid", gap: 16 }}>
-        {store.invoices.map((invoice) => (
-          <div key={invoice.id} style={{ border: "1px solid #999", padding: 12 }}>
-            <p style={{ fontSize: 20, margin: "4px 0" }}>{invoice.workTitle}</p>
-            <p style={{ fontSize: 18, margin: "4px 0" }}>Amount: {invoice.amount}</p>
-            <p style={{ fontSize: 18, margin: "4px 0" }}>Client: {invoice.clientMark}</p>
-            <p style={{ fontSize: 18, margin: "4px 0" }}>
-              {invoice.state === "paid"
-                ? `Paid in full on ${invoice.paidOn}.`
-                : "Not paid yet."}
-            </p>
-          </div>
-        ))}
+        {store.invoices.map((invoice) => {
+          const networkLink =
+            invoice.state === "unpaid" &&
+            invoice.chainWorkerAddress &&
+            invoice.chainBillId
+              ? `#/pay/${encodePayLink(invoice, {
+                  workerAddress: invoice.chainWorkerAddress,
+                  billId: invoice.chainBillId,
+                })}`
+              : null;
+          return (
+            <div key={invoice.id} style={{ border: "1px solid #999", padding: 12 }}>
+              <p style={{ fontSize: 20, margin: "4px 0" }}>{invoice.workTitle}</p>
+              <p style={{ fontSize: 18, margin: "4px 0" }}>Amount: {invoice.amount}</p>
+              <p style={{ fontSize: 18, margin: "4px 0" }}>Client: {invoice.clientMark}</p>
+              <p style={{ fontSize: 18, margin: "4px 0" }}>
+                {invoice.state === "paid"
+                  ? `Paid in full on ${invoice.paidOn}.`
+                  : "Not paid yet."}
+              </p>
+              {networkLink && (
+                <div style={{ marginTop: 12 }}>
+                  <p style={{ fontSize: 18, margin: "4px 0" }}>
+                    Send this network pay link:
+                  </p>
+                  <p style={{ fontSize: 18, margin: "4px 0", wordBreak: "break-all" }}>
+                    {networkLink}
+                  </p>
+                  <button
+                    style={{ fontSize: 18, padding: 12 }}
+                    onClick={() => {
+                      window.location.hash = networkLink;
+                    }}
+                  >
+                    Open pay page
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
       {readLive && (
         <div style={{ marginTop: 32, border: "1px solid #999", padding: 16 }}>

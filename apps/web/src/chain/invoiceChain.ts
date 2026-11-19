@@ -20,6 +20,21 @@ export async function createInvoiceOnChain(
     });
 }
 
+export async function readInvoiceCountOnChain(
+  actor: ActorSession,
+): Promise<number> {
+  const { result } = await actor.contract.methods
+    .invoices_count(actor.account)
+    .simulate({ from: actor.account });
+  if (typeof result === "bigint") {
+    return Number(result);
+  }
+  if (typeof result === "number") {
+    return result;
+  }
+  return Number((result as { toString(): string }).toString());
+}
+
 export async function readReceiptsOnChain(
   actor: ActorSession,
 ): Promise<ReceiptView> {

@@ -8,6 +8,11 @@ export interface Invoice {
   state: InvoiceState;
   paidAmount: number | null;
   paidOn: string | null;
+  // Set only after the bill is written on the network. These
+  // two values are the public pay target for the final link.
+  // They are not keys and they do not unlock anything.
+  chainWorkerAddress?: string;
+  chainBillId?: number;
 }
 
 export interface CreateInvoiceInput {

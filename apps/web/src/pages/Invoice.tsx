@@ -20,6 +20,7 @@ export default function Invoice({ store }: { store: Store }) {
   const [link, setLink] = useState<string | null>(null);
   const [chainNote, setChainNote] = useState<string | null>(null);
   const [issue, setIssue] = useState<InvoiceInputIssue | null>(null);
+  const [writing, setWriting] = useState(false);
 
   return (
     <main style={{ fontFamily: "sans-serif", maxWidth: 640, margin: "40px auto", padding: 16 }}>
@@ -58,35 +59,51 @@ export default function Invoice({ store }: { store: Store }) {
         </label>
         <button
           style={{ fontSize: 20, padding: 14 }}
+          disabled={writing}
           onClick={async () => {
+            if (writing) {
+              return;
+            }
             const invoice = store.addInvoice({
               workTitle,
               amount: Number(amount),
               clientMark,
             });
-            setLink(`#/pay/${encodePayLink(invoice)}`);
-            if (hasChainSession()) {
-              setChainNote("Writing the bill on the network. This can take a few seconds.");
-              try {
-                await createInvoiceLive({
-                  webInvoiceId: invoice.id,
-                  amount: invoice.amount,
-                });
-                // The bill now lives on chain, so build the
-                // final link with the real pay targets in it.
-                const worker = chainWorkerAddress();
-                if (worker) {
-                  setLink(
-                    `#/pay/${encodePayLink(invoice, {
-                      workerAddress: worker,
-                      billId: billIdFor(invoice.id),
-                    })}`,
-                  );
-                }
-                setChainNote("This bill is also written on the network.");
-              } catch {
-                setChainNote("The bill was made here, but the network write did not finish.");
+            setLink(null);
+            if (!hasChainSession()) {
+              setLink(`#/pay/${encodePayLink(invoice)}`);
+              return;
+            }
+            // With a live session, no link is shown yet. The
+            // first link would lack the network pay target and
+            // could be copied too early, as the owner walk
+            // showed. The only link shown is the final one.
+            setWriting(true);
+            setChainNote("Writing the bill on the network. This can take a few seconds.");
+            try {
+              await createInvoiceLive({
+                webInvoiceId: invoice.id,
+                amount: invoice.amount,
+              });
+              const worker = chainWorkerAddress();
+              if (!worker) {
+                throw new Error("Worker address missing.");
               }
+              const target = {
+                workerAddress: worker,
+                billId: billIdFor(invoice.id),
+              };
+              const marked = store.markInvoiceOnChain(invoice.id, target);
+              if (!marked) {
+                throw new Error("Network pay target missing.");
+              }
+              setLink(`#/pay/${encodePayLink(marked, target)}`);
+              setChainNote("This bill is written on the network. The link below is ready to send.");
+            } catch {
+              setLink(null);
+              setChainNote("The bill was made here, but the network write did not finish. Do not send a link for this bill yet.");
+            } finally {
+              setWriting(false);
             }
           }}
         >

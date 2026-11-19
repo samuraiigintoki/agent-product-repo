@@ -24,6 +24,10 @@ export interface PayLinkData {
 
 const WORKER_ADDRESS_SHAPE = /^0x[0-9a-fA-F]{64}$/;
 
+export function isWorkerAddress(value: unknown): value is string {
+  return typeof value === "string" && WORKER_ADDRESS_SHAPE.test(value);
+}
+
 export function encodePayLink(
   invoice: Invoice,
   chain?: { workerAddress: string; billId: number },
@@ -83,8 +87,7 @@ export function decodePayLink(segment: string): PayLinkData | null {
     // is broken, never quietly read as an old link.
     if (
       parsed.v !== 2 ||
-      typeof parsed.worker !== "string" ||
-      !WORKER_ADDRESS_SHAPE.test(parsed.worker) ||
+      !isWorkerAddress(parsed.worker) ||
       typeof parsed.billId !== "number" ||
       !Number.isInteger(parsed.billId) ||
       parsed.billId <= 0
@@ -106,5 +109,11 @@ export function invoiceFromPayLink(data: PayLinkData): Invoice {
     state: "unpaid",
     paidAmount: null,
     paidOn: null,
+    ...(data.workerAddress && data.billId
+      ? {
+          chainWorkerAddress: data.workerAddress,
+          chainBillId: data.billId,
+        }
+      : {}),
   };
 }

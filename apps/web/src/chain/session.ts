@@ -112,9 +112,21 @@ export async function createInvoiceLive(input: {
     );
   }
   throwIfUserWalletLocked();
-  const { createInvoiceOnChain } = await import("./invoiceChain");
+  const { createInvoiceOnChain, readInvoiceCountOnChain } = await import(
+    "./invoiceChain"
+  );
+  let billId = billIds.get(input.webInvoiceId);
+  if (billId === undefined) {
+    // A fresh page has an empty bill number map. Ask the
+    // network how many bills this wallet already has, so the
+    // next number cannot reuse one the network would reject.
+    const count = await readInvoiceCountOnChain(session);
+    billId = Math.max(nextBillId, count + 1);
+    billIds.set(input.webInvoiceId, billId);
+    nextBillId = billId + 1;
+  }
   await createInvoiceOnChain(session, {
-    billId: billIdFor(input.webInvoiceId),
+    billId,
     amount: input.amount,
     dueMark: 7,
   });

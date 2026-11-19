@@ -48,6 +48,26 @@ describe("bills survive a refresh (Task 6)", () => {
     expect(createStore(storage).invoices).toEqual([]);
   });
 
+  it("a bill keeps its network pay target across a refresh", () => {
+    const storage = memoryStorage();
+    const first = createStore(storage);
+    const bill = first.addInvoice({
+      workTitle: "Logo design",
+      amount: 1250,
+      clientMark: "Client A",
+    });
+    first.markInvoiceOnChain(bill.id, {
+      workerAddress: `0x${"a".repeat(64)}`,
+      billId: 42,
+    });
+
+    const second = createStore(storage);
+    expect(second.getInvoice(bill.id)?.chainWorkerAddress).toBe(
+      `0x${"a".repeat(64)}`,
+    );
+    expect(second.getInvoice(bill.id)?.chainBillId).toBe(42);
+  });
+
   it("what is stored holds bills only, nothing key shaped", () => {
     const storage = memoryStorage();
     const store = createStore(storage);

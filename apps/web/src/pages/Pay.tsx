@@ -7,6 +7,7 @@ import { shortAddress } from "../chain/userWallet";
 export default function Pay({ store, id }: { store: Store; id: string }) {
   const [, setPaidTick] = useState(0);
   const [chainNote, setChainNote] = useState<string | null>(null);
+  const [paying, setPaying] = useState(false);
   // A carrying link brings its bill with it. Import it once so
   // this device can show and pay it. Old short links fall back
   // to a plain store look up.
@@ -51,38 +52,50 @@ export default function Pay({ store, id }: { store: Store; id: string }) {
       ) : (
         <button
           style={{ fontSize: 20, padding: 14 }}
+          disabled={paying}
           onClick={async () => {
-            store.payInvoice(invoice.id);
-            setPaidTick((tick) => tick + 1);
-            if (hasChainSession() && linked && !linked.workerAddress) {
-              // An old link carries no pay targets, so there is
-              // nothing true to pay against on chain.
+            if (paying) {
+              return;
+            }
+            if (!hasChainSession()) {
+              store.payInvoice(invoice.id);
+              setPaidTick((tick) => tick + 1);
+              return;
+            }
+            if (!linked?.workerAddress) {
+              // An old link carries no pay target, so there is
+              // nothing true to pay against on the network. It
+              // must not be marked paid as if the network pay
+              // had happened.
               setChainNote(
-                "This is an old link. Ask the worker to send a new link to pay on the network. You can still mark it paid here.",
+                "This is an old link. Ask the worker to send a new link to pay on the network. This bill was not marked paid.",
               );
-            } else if (hasChainSession()) {
-              setChainNote(
-                "Paying in private on the network. Your device does the private work, so this can take a few seconds. Please wait.",
-              );
-              try {
-                const paid = await payInvoiceLive({
-                  webInvoiceId: invoice.id,
-                  amount: invoice.amount,
-                  ...(linked?.workerAddress
-                    ? {
-                        workerAddress: linked.workerAddress,
-                        billId: linked.billId ?? undefined,
-                      }
-                    : {}),
-                });
-                setChainNote(
-                  paid
-                    ? `Paid on the network too. That step took about ${paid.seconds} seconds.`
-                    : "Paid here only.",
-                );
-              } catch {
-                setChainNote("Paid here, but the network pay did not finish.");
+              return;
+            }
+            setPaying(true);
+            setChainNote(
+              "Paying in private on the network. Your device does the private work, so this can take a few seconds. Please wait.",
+            );
+            try {
+              const paid = await payInvoiceLive({
+                webInvoiceId: invoice.id,
+                amount: invoice.amount,
+                workerAddress: linked.workerAddress,
+                billId: linked.billId ?? undefined,
+              });
+              if (!paid) {
+                setChainNote("The network pay did not finish. This bill was not marked paid.");
+                return;
               }
+              store.payInvoice(invoice.id);
+              setPaidTick((tick) => tick + 1);
+              setChainNote(
+                `Paid on the network. That step took about ${paid.seconds} seconds.`,
+              );
+            } catch {
+              setChainNote("The network pay did not finish. This bill was not marked paid.");
+            } finally {
+              setPaying(false);
             }
           }}
         >

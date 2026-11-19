@@ -17,7 +17,7 @@ export default function MakeProof({ store }: { store: Store }) {
     }
     store.addClaim(invoice.id, showAmount);
     const claim = buildClaimForBill(invoice, showAmount, sixMonthsFrom(today()));
-    const billId = billIdFor(invoice.id);
+    const billId = invoice.chainBillId ?? billIdFor(invoice.id);
     const payload = btoa(
       encodeURIComponent(JSON.stringify({ claim, billId })),
     );
