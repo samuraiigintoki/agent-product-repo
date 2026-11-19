@@ -49,7 +49,12 @@ export async function markProofOnChain(
 ): Promise<void> {
   await session.contracts.worker.methods
     .mark_proof(claimHash(claim, billId), expiryNumber(claim.expiresAt))
-    .send({ from: session.accounts.worker });
+    .send({
+      from: session.accounts.worker,
+      ...(session.workerFee
+        ? { fee: { paymentMethod: session.workerFee } }
+        : {}),
+    });
 }
 
 export async function readProofExpiryOnChain(
