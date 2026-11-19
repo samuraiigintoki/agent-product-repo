@@ -191,6 +191,21 @@ unit tests say.
   shared. So P4 resolves in the best way: the version 2 pay
   link (worker address plus bill number) is enough, and
   nothing about the payer has to travel anywhere.
+- Task 3 done 2026-11-19. The session now takes the user
+  wallet in one chosen role (chain/wallet.ts userRole,
+  workerFee and clientFee). Paying takes the worker address
+  as an input (chain/payChain.ts). The panel offers Connect
+  to make bills or Connect to pay a bill, shows the connected
+  role, and has Disconnect. Wrong role actions are refused in
+  plain words. A real bug was found by the live check and
+  fixed: session wallets had proving off, which the local
+  network accepts and the public network rejects as an
+  invalid proof. Proving now follows the node address from
+  settings (off local, on public). Live proof at
+  apps/web/src/chain/testnetClientRole.test.ts: a stranger
+  worker made bill 248422, the app session client paid in
+  about 21s, the worker read the receipt back. Fast suite
+  green, type check and build clean.
 - Sepolia note: the owner holds Sepolia test accounts. They
   are the fallback if the sponsored fee path ever fails (fee
   money can be claimed from Sepolia). Keys never come into

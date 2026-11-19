@@ -20,6 +20,7 @@ describe("local network flow", () => {
       expect(before.count).toBe(0);
 
       const paid = await payInvoiceOnChain(session, {
+        worker: session.accounts.worker,
         billId: 42,
         amount: 1250,
         payerMark: 99,

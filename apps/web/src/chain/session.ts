@@ -21,18 +21,20 @@ export async function signInTestAccount(nextRole: Role): Promise<void> {
   }
 }
 
-// Connects the unlocked user wallet as the worker. The client
-// and third roles stay test accounts for local two party
-// checks. Any older session is replaced, so the worker on
-// chain is the user's own address from this point.
-export async function signInWithUserWallet(): Promise<void> {
+// Connects the unlocked user wallet in one role: "worker" to
+// make bills, "client" to pay one. One session holds one user
+// role. Any older session is replaced, so the role on chain
+// is the user's own address from this point.
+export async function signInWithUserWallet(
+  nextRole: Role = "worker",
+): Promise<void> {
   const material = openKeyMaterial();
   if (!material) {
     throw new Error("Unlock your wallet first.");
   }
   const { createChainSession } = await import("./wallet");
-  session = await createChainSession(AZTEC_NODE_URL, material);
-  role = "worker";
+  session = await createChainSession(AZTEC_NODE_URL, material, nextRole);
+  role = nextRole;
 }
 
 export function signedInRole(): Role {
@@ -44,7 +46,13 @@ export function hasChainSession(): boolean {
 }
 
 export function workerIsUserWallet(): boolean {
-  return session?.workerIsUser === true;
+  return session?.userRole === "worker";
+}
+
+// The user role this session is connected in, or null when no
+// user wallet is connected.
+export function connectedUserRole(): Role | null {
+  return session?.userRole ?? null;
 }
 
 // Drops the live session. Called when the wallet is locked or
@@ -54,11 +62,11 @@ export function dropChainSession(): void {
   session = null;
 }
 
-// Worker actions from a user wallet need the wallet still open.
+// Actions from a user wallet need the wallet still open.
 // Locking drops the session in the screens; this is the second
 // lock on the door for any path that missed it.
 function throwIfUserWalletLocked(): void {
-  if (session?.workerIsUser && !isWalletOpen()) {
+  if (session?.userRole && !isWalletOpen()) {
     session = null;
     throw new Error(
       "Your wallet is locked. Unlock it to use the network.",
@@ -84,6 +92,11 @@ export async function createInvoiceLive(input: {
   if (!session) {
     return;
   }
+  if (session.userRole === "client") {
+    throw new Error(
+      "This wallet is connected to pay bills. Connect as worker to make bills.",
+    );
+  }
   throwIfUserWalletLocked();
   const { createInvoiceOnChain } = await import("./invoiceChain");
   await createInvoiceOnChain(session, {
@@ -100,8 +113,17 @@ export async function payInvoiceLive(input: {
   if (!session) {
     return null;
   }
+  if (session.userRole === "worker") {
+    throw new Error(
+      "This wallet is connected to make bills. Connect as client to pay.",
+    );
+  }
+  if (session.userRole === "client") {
+    throwIfUserWalletLocked();
+  }
   const { payInvoiceOnChain } = await import("./payChain");
   return payInvoiceOnChain(session, {
+    worker: session.accounts.worker,
     billId: billIdFor(input.webInvoiceId),
     amount: input.amount,
     payerMark: 99,
@@ -138,7 +160,7 @@ export async function currentSessionForProof(): Promise<ChainSession | null> {
   }
   // Marking a proof is a worker write; a locked user wallet
   // must not mark anything.
-  if (session.workerIsUser && !isWalletOpen()) {
+  if (session.userRole === "worker" && !isWalletOpen()) {
     session = null;
     return null;
   }

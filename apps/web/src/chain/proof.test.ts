@@ -26,7 +26,7 @@ const paidInvoice: Invoice = {
 async function paidSession(): Promise<ChainSession> {
   const session = await createChainSession();
   await createInvoiceOnChain(session, { billId: 42, amount: 1250, dueMark: 7 });
-  await payInvoiceOnChain(session, { billId: 42, amount: 1250, payerMark: 99 });
+  await payInvoiceOnChain(session, { worker: session.accounts.worker, billId: 42, amount: 1250, payerMark: 99 });
   const receipt = await readReceiptsOnChain(session, "worker");
   expect(receipt.count).toBe(1);
   return session;

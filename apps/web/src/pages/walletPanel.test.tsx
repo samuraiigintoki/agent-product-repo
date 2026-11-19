@@ -36,7 +36,10 @@ describe("wallet panel", () => {
     expect(screen.queryByText(/pp-backup\./)).toBeNull();
     expect(screen.getByText(/Wallet open\./)).toBeTruthy();
     expect(
-      screen.getByRole("button", { name: "Connect my wallet to the network" }),
+      screen.getByRole("button", { name: "Connect to make bills" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Connect to pay a bill" }),
     ).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Lock my wallet" }));

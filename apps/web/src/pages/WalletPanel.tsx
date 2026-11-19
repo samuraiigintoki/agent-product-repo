@@ -12,9 +12,9 @@ import {
   type WalletStorage,
 } from "../chain/userWallet";
 import {
+  connectedUserRole,
   dropChainSession,
   signInWithUserWallet,
-  workerIsUserWallet,
 } from "../chain/session";
 
 // The wallet area on the home page. Plain screens only: the
@@ -41,6 +41,7 @@ export default function WalletPanel({
   const hasWallet = hasUserWallet(storage);
   const walletOpen = isWalletOpen();
   const address = openWalletAddress();
+  const connectedRole = connectedUserRole();
 
   const fail = (error: unknown) => {
     setNote(error instanceof Error ? error.message : "Something went wrong.");
@@ -74,12 +75,14 @@ export default function WalletPanel({
     }
   };
 
-  const connect = async () => {
+  const connect = async (role: "worker" | "client") => {
     setNote("Connecting your wallet to the network. This can take a few seconds.");
     try {
-      await signInWithUserWallet();
+      await signInWithUserWallet(role);
       setNote(
-        "Your wallet is connected. New bills are written from your wallet, and the test network covers the fee while your wallet holds no fee money.",
+        role === "worker"
+          ? "Your wallet is connected to make bills. The test network covers the fee while your wallet holds no fee money."
+          : "Your wallet is connected to pay bills. The test network covers the fee while your wallet holds no fee money.",
       );
       refresh();
     } catch (error) {
@@ -202,15 +205,34 @@ export default function WalletPanel({
             Wallet open.
             {address ? ` Address: ${shortAddress(address)}` : ""}
           </p>
-          {workerIsUserWallet() ? (
-            <p style={{ fontSize: 18 }}>
-              Connected to the network as the worker. New bills are
-              written from this wallet.
-            </p>
-          ) : (
-            <button style={buttonStyle} onClick={connect}>
-              Connect my wallet to the network
-            </button>
+          {connectedRole === null && (
+            <>
+              <button style={buttonStyle} onClick={() => connect("worker")}>
+                Connect to make bills
+              </button>
+              <button style={buttonStyle} onClick={() => connect("client")}>
+                Connect to pay a bill
+              </button>
+            </>
+          )}
+          {connectedRole !== null && (
+            <>
+              <p style={{ fontSize: 18 }}>
+                {connectedRole === "worker"
+                  ? "Connected to make bills. New bills are written from this wallet."
+                  : "Connected to pay bills. You can pay a bill link with this wallet."}
+              </p>
+              <button
+                style={buttonStyle}
+                onClick={() => {
+                  dropChainSession();
+                  setNote("Disconnected. Your wallet stays open.");
+                  refresh();
+                }}
+              >
+                Disconnect
+              </button>
+            </>
           )}
           <button
             style={buttonStyle}

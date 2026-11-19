@@ -21,7 +21,7 @@ describe("user wallet worker flow", () => {
       const userAddress = await deriveWalletAddress(material);
 
       const session = await createChainSession("http://localhost:8080", material);
-      expect(session.workerIsUser).toBe(true);
+      expect(session.userRole).toBe("worker");
       expect(session.accounts.worker.toString()).toBe(userAddress);
       expect(session.workerFee).not.toBeNull();
 
@@ -35,6 +35,7 @@ describe("user wallet worker flow", () => {
       expect(before.count).toBe(0);
 
       await payInvoiceOnChain(session, {
+        worker: session.accounts.worker,
         billId: 77,
         amount: 500,
         payerMark: 99,
