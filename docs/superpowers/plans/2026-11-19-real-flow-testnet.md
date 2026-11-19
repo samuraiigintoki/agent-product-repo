@@ -181,6 +181,16 @@ unit tests say.
   has paid yet. Payment read back is Task 2. One script bug
   found and fixed during the spike (logging line), no app
   code touched.
+- Task 2 done 2026-11-19. Spike at
+  apps/web/src/chain/testnetStranger.test.ts. Two fresh
+  wallets in two separate wallet programs, sharing nothing.
+  Worker A made bill 387078 (22s). Client B paid it knowing
+  only A address and the bill number (19s). A read the
+  receipt at the first look: count 1, right bill, right
+  amount. No sender registration, no wait, nothing extra
+  shared. So P4 resolves in the best way: the version 2 pay
+  link (worker address plus bill number) is enough, and
+  nothing about the payer has to travel anywhere.
 - Sepolia note: the owner holds Sepolia test accounts. They
   are the fallback if the sponsored fee path ever fails (fee
   money can be claimed from Sepolia). Keys never come into
