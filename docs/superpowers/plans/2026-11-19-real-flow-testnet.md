@@ -167,6 +167,25 @@ Time each chain step and write the times in this plan.
 Any step failing means the slice is not done, whatever the
 unit tests say.
 
+## Progress
+- Task 1 done 2026-11-19. Spike script at
+  apps/web/src/chain/testnetSpike.test.ts, run against the
+  public test network with the pinned contract and the
+  sponsored fee. Two runs, same shape: node ready under 1s,
+  wallet and fresh account made in about 1s each, and
+  create_invoice landed in 23s then 21s. Real proving was on,
+  on this small 2 core sandbox. Under the 2 minute stop line
+  with room to spare. Note the read back wording above was
+  loose: after create_invoice alone, read_receipts rightly
+  shows count 0, because receipts record payments, and nobody
+  has paid yet. Payment read back is Task 2. One script bug
+  found and fixed during the spike (logging line), no app
+  code touched.
+- Sepolia note: the owner holds Sepolia test accounts. They
+  are the fallback if the sponsored fee path ever fails (fee
+  money can be claimed from Sepolia). Keys never come into
+  chat. Any step needing those accounts is done by the owner.
+
 ## Known limits that stay, named on purpose
 - The proof is still the device side tamper seal. The
   unforgeable on chain proof is its own later slice.
