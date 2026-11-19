@@ -48,31 +48,36 @@ export default function MyPay({
     setLiveState("reading");
     setPaymentNote(null);
     let anyLive = false;
-    if (readLive) {
-      const view = await readLive();
-      if (view !== null) {
-        anyLive = true;
-        setLive(view);
-      }
-    }
-    if (readPaymentsLive) {
-      const views = await readPaymentsLive(store.invoices);
-      if (views !== null) {
-        anyLive = true;
-        setPayments(views);
-        for (const view of views) {
-          if (view.paid) {
-            store.markInvoicePaidOnNetwork(view.invoiceId, view.amount);
-          }
+    try {
+      if (readLive) {
+        const view = await readLive();
+        if (view !== null) {
+          anyLive = true;
+          setLive(view);
         }
-        setTick((tick) => tick + 1);
-      } else if (!readLive) {
-        setPaymentNote(
-          "Connect your wallet to make bills on the home page first.",
-        );
       }
+      if (readPaymentsLive) {
+        const views = await readPaymentsLive(store.invoices);
+        if (views !== null) {
+          anyLive = true;
+          setPayments(views);
+          for (const view of views) {
+            if (view.paid) {
+              store.markInvoicePaidOnNetwork(view.invoiceId, view.amount);
+            }
+          }
+          setTick((tick) => tick + 1);
+        } else if (!readLive) {
+          setPaymentNote(
+            "Connect your wallet to make bills on the home page first.",
+          );
+        }
+      }
+      setLiveState(anyLive ? "done" : "off");
+    } catch {
+      setLiveState("idle");
+      setPaymentNote("The network read did not finish. Try again.");
     }
-    setLiveState(anyLive ? "done" : "off");
   };
 
   const writeBill = async (invoice: Invoice) => {
@@ -140,7 +145,9 @@ export default function MyPay({
                 {invoice.state === "paid"
                   ? invoice.paidOn
                     ? `Paid in full on ${invoice.paidOn}.`
-                    : "Paid in full on the network."
+                    : invoice.paidOnNetwork
+                      ? "Paid in full on the network."
+                      : "Paid in full."
                   : "Not paid yet."}
               </p>
               {networkLink && (

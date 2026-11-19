@@ -26,6 +26,13 @@ export default function Pay({ store, id }: { store: Store; id: string }) {
       : linked
         ? store.getInvoice(linked.id)
         : store.getInvoice(id);
+  // A device only mark never settles a network bill. A network
+  // link still offers the real pay until the network itself
+  // has said the bill is paid.
+  const shownPaid = invoice
+    ? invoice.state === "paid" &&
+      (!linked?.workerAddress || invoice.paidOnNetwork === true)
+    : false;
 
   if (linkBroken) {
     return (
@@ -65,19 +72,25 @@ export default function Pay({ store, id }: { store: Store; id: string }) {
         </p>
       )}
       <p>Fake test money only. No real money moves.</p>
-      {linked?.workerAddress && !hasChainSession() && invoice.state !== "paid" && (
+      {linked?.workerAddress && !shownPaid && invoice.state === "paid" && (
+        <p style={{ fontSize: 18 }}>
+          This bill is marked paid on this device only. The network
+          pay is still open below.
+        </p>
+      )}
+      {linked?.workerAddress && !hasChainSession() && !shownPaid && (
         <p style={{ fontSize: 18 }}>
           Connect your wallet as client on the home page first. This
           bill will stay unpaid here until the network pay runs.
         </p>
       )}
-      {!linked?.workerAddress && !hasChainSession() && invoice.state !== "paid" && (
+      {!linked?.workerAddress && !hasChainSession() && !shownPaid && (
         <p style={{ fontSize: 18 }}>
           No wallet is connected. Paying here only marks this device.
         </p>
       )}
       {chainNote !== null && <p style={{ fontSize: 18 }}>{chainNote}</p>}
-      {invoice.state === "paid" ? (
+      {shownPaid ? (
         <p style={{ fontSize: 22 }}>Paid. Thank you.</p>
       ) : (
         <button
@@ -125,7 +138,7 @@ export default function Pay({ store, id }: { store: Store; id: string }) {
                 ? await checkInvoicePaidLive(target).catch(() => null)
                 : null;
               if (alreadyPaid) {
-                store.payInvoice(invoice.id);
+                store.markInvoicePaidOnNetwork(invoice.id, invoice.amount);
                 setPaidTick((tick) => tick + 1);
                 setChainNote("This bill is already paid on the network.");
                 return;
@@ -140,7 +153,7 @@ export default function Pay({ store, id }: { store: Store; id: string }) {
                 setChainNote("The network pay did not finish. This bill was not marked paid.");
                 return;
               }
-              store.payInvoice(invoice.id);
+              store.markInvoicePaidOnNetwork(invoice.id, invoice.amount);
               setPaidTick((tick) => tick + 1);
               setChainNote(
                 `Paid on the network. That step took about ${paid.seconds} seconds.`,
@@ -166,7 +179,7 @@ export default function Pay({ store, id }: { store: Store; id: string }) {
                     }).catch(() => null)
                   : null;
               if (landed) {
-                store.payInvoice(invoice.id);
+                store.markInvoicePaidOnNetwork(invoice.id, invoice.amount);
                 setPaidTick((tick) => tick + 1);
                 setChainNote("This bill is already paid on the network.");
                 return;

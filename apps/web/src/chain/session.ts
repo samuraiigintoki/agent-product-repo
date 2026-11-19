@@ -13,6 +13,18 @@ import type { KeyMaterial } from "./keyVault";
 let session: UserChainSession | null = null;
 const billIds = new Map<string, number>();
 let nextBillId = 1;
+let billIdOwner: string | null = null;
+
+// Bill numbers belong to one wallet. When the session
+// wallet changes, the map from a past wallet must not carry
+// into the new one.
+function ensureBillIdOwner(owner: string): void {
+  if (billIdOwner !== owner) {
+    billIds.clear();
+    nextBillId = 1;
+    billIdOwner = owner;
+  }
+}
 
 // Session changes run one at a time. Connect, disconnect,
 // lock, and reconnect can be pressed in any order by a fast
@@ -154,6 +166,9 @@ function throwIfUserWalletLocked(): void {
 }
 
 export function billIdFor(webInvoiceId: string): number {
+  if (session) {
+    ensureBillIdOwner(session.account.toString());
+  }
   const existing = billIds.get(webInvoiceId);
   if (existing !== undefined) {
     return existing;
@@ -186,6 +201,7 @@ export async function reserveInvoiceBillIdLive(
   }
   throwIfUserWalletLocked();
   const workerAddress = session.account.toString();
+  ensureBillIdOwner(workerAddress);
   const existing = billIds.get(webInvoiceId);
   if (existing !== undefined) {
     return { billId: existing, workerAddress };
@@ -215,7 +231,9 @@ export async function createInvoiceLive(input: {
     );
   }
   throwIfUserWalletLocked();
+  const activeSession = session;
   if (input.billId !== undefined) {
+    ensureBillIdOwner(session.account.toString());
     billIds.set(input.webInvoiceId, input.billId);
     nextBillId = Math.max(nextBillId, input.billId + 1);
   }
@@ -237,11 +255,21 @@ export async function createInvoiceLive(input: {
     target.billId,
   ).catch(() => false);
   if (!alreadyMade) {
+    if (session !== activeSession || !isWalletOpen()) {
+      throw new Error(
+        "Your wallet was locked while writing. Check My pay before sending a link.",
+      );
+    }
     await createInvoiceOnChain(session, {
       billId: target.billId,
       amount: input.amount,
       dueMark: 7,
     });
+    if (session !== activeSession || !isWalletOpen()) {
+      throw new Error(
+        "Your wallet was locked while writing. Check My pay before sending a link.",
+      );
+    }
   }
   return target;
 }

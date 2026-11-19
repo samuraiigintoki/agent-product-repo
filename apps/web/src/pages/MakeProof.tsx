@@ -90,7 +90,9 @@ export default function MakeProof({ store }: { store: Store }) {
             <p style={{ fontSize: 18, margin: "4px 0" }}>
               {invoice.paidOn
                 ? `Paid in full on ${invoice.paidOn}.`
-                : "Paid in full on the network."}
+                : invoice.paidOnNetwork
+                  ? "Paid in full on the network."
+                  : "Paid in full."}
             </p>
             <button
               style={{ fontSize: 18, padding: 12 }}

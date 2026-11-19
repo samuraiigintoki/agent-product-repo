@@ -10,6 +10,10 @@ export interface Invoice {
   state: InvoiceState;
   paidAmount: number | null;
   paidOn: string | null;
+  // True only when the network itself has said this bill is
+  // paid. A device only paid mark leaves this off, so the
+  // pay page can still offer the real network pay later.
+  paidOnNetwork?: boolean;
   // Which side of the flow this bill belongs to on this
   // device. Old stored bills have no mark and are read as
   // made, because that was the only saved kind when they
@@ -112,7 +116,13 @@ export function markPaid(
   paidOn: string,
 ): Invoice {
   if (paidAmount !== invoice.amount) {
-    return { ...invoice, state: "unpaid", paidAmount: null, paidOn: null };
+    return {
+      ...invoice,
+      state: "unpaid",
+      paidAmount: null,
+      paidOn: null,
+      paidOnNetwork: false,
+    };
   }
-  return { ...invoice, state: "paid", paidAmount, paidOn };
+  return { ...invoice, state: "paid", paidAmount, paidOn, paidOnNetwork: false };
 }

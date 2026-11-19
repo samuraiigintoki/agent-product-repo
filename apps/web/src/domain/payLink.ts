@@ -1,4 +1,4 @@
-import type { Invoice } from "./invoice";
+import { MAX_WORK_TITLE_LENGTH, type Invoice } from "./invoice";
 
 // A pay link carries its own bill, so the link opens on any
 // phone, in a new tab, or after a refresh. Version 1 links
@@ -69,8 +69,9 @@ export function decodePayLink(segment: string): PayLinkData | null {
       parsed.id === "" ||
       typeof parsed.workTitle !== "string" ||
       parsed.workTitle.trim() === "" ||
+      parsed.workTitle.trim().length > MAX_WORK_TITLE_LENGTH ||
       typeof parsed.amount !== "number" ||
-      !Number.isInteger(parsed.amount) ||
+      !Number.isSafeInteger(parsed.amount) ||
       parsed.amount <= 0
     ) {
       return null;
@@ -89,7 +90,7 @@ export function decodePayLink(segment: string): PayLinkData | null {
       parsed.v !== 2 ||
       !isWorkerAddress(parsed.worker) ||
       typeof parsed.billId !== "number" ||
-      !Number.isInteger(parsed.billId) ||
+      !Number.isSafeInteger(parsed.billId) ||
       parsed.billId <= 0
     ) {
       return null;

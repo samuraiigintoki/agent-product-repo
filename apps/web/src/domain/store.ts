@@ -88,12 +88,17 @@ function isStoredInvoice(value: unknown): value is Invoice {
         /^\d{4}-\d{2}-\d{2}$/.test(bill.paidOn) &&
         !Number.isNaN(Date.parse(bill.paidOn)))) &&
     (bill.side === undefined || bill.side === "made" || bill.side === "sent") &&
+    (bill.paidOnNetwork === undefined ||
+      typeof bill.paidOnNetwork === "boolean") &&
     chainIdOk(bill.chainBillId) &&
     chainIdOk(bill.chainAttemptBillId) &&
+    (bill.state !== "paid" || bill.paidAmount === bill.amount) &&
+    (bill.state !== "unpaid" || bill.paidAmount === null) &&
     (bill.chainWorkerAddress === undefined ||
-      (isWorkerAddress(bill.chainWorkerAddress) &&
-        (bill.chainBillId !== undefined ||
-          bill.chainAttemptBillId !== undefined)))
+      isWorkerAddress(bill.chainWorkerAddress)) &&
+    ((bill.chainBillId === undefined &&
+      bill.chainAttemptBillId === undefined) ||
+      isWorkerAddress(bill.chainWorkerAddress))
   );
 }
 
@@ -139,7 +144,13 @@ function loadBills(storage: BillStorage | null): Invoice[] {
 // a stale tab can never unpay a bill. Network fields only
 // fill empty slots, so a merge never moves a pay target.
 function mergeBill(local: Invoice, stored: Invoice): Invoice {
-  const paid = local.state === "paid" ? local : stored;
+  const paid = local.paidOnNetwork
+    ? local
+    : stored.paidOnNetwork
+      ? stored
+      : local.state === "paid"
+        ? local
+        : stored;
   return {
     ...stored,
     ...local,
@@ -151,6 +162,7 @@ function mergeBill(local: Invoice, stored: Invoice): Invoice {
     state: paid.state,
     paidAmount: paid.paidAmount,
     paidOn: paid.paidOn,
+    paidOnNetwork: paid.paidOnNetwork ?? false,
   };
 }
 
@@ -343,6 +355,16 @@ export function createStore(storage: BillStorage | null = defaultBillStorage()) 
         return undefined;
       }
       if (invoices[index].state === "paid") {
+        if (!invoices[index].paidOnNetwork) {
+          const upgraded: Invoice = {
+            ...invoices[index],
+            paidAmount: amount,
+            paidOnNetwork: true,
+          };
+          invoices[index] = upgraded;
+          saveBills();
+          return upgraded;
+        }
         return invoices[index];
       }
       // No pay date is guessed here. A network read proves
@@ -352,6 +374,7 @@ export function createStore(storage: BillStorage | null = defaultBillStorage()) 
         ...invoices[index],
         state: "paid",
         paidAmount: amount,
+        paidOnNetwork: true,
       };
       invoices[index] = paid;
       saveBills();
