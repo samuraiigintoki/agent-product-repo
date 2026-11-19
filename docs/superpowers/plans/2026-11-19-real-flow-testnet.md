@@ -234,6 +234,15 @@ unit tests say.
   proves no test sign in is offered and the wallet and main
   actions remain. Fast suite 63 green, type check and build
   clean.
+- Task 6 done 2026-11-19. Bills save on the device under one
+  named storage key (private-pay-proof.bills.v1) and load
+  back at start, so a refresh keeps them. Storage holds
+  bills only, checked by a scan test. Damaged or wrong
+  shaped stored text loads as an empty list. A blocked or
+  full storage never breaks making a bill; the bill just
+  will not survive a refresh. Claims stay in page memory
+  for now; the proof link carries the claim. Fast suite 67
+  green, type check and build clean.
 - Sepolia note: the owner holds Sepolia test accounts. They
   are the fallback if the sponsored fee path ever fails (fee
   money can be claimed from Sepolia). Keys never come into

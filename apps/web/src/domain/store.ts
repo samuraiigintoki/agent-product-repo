@@ -33,10 +33,81 @@ export function sixMonthsFrom(dateText: string): string {
   return date.toISOString().slice(0, 10);
 }
 
-export function createStore() {
-  const invoices: Invoice[] = [];
+// Bills save on this device so a refresh does not lose them.
+// The storage holds bills only: title, amount, client mark,
+// paid state. Never keys, never backup codes, never passwords.
+// (Keys have their own sealed box in chain/keyVault.ts.)
+export const BILLS_STORAGE_KEY = "private-pay-proof.bills.v1";
+
+export interface BillStorage {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+  removeItem(key: string): void;
+}
+
+function defaultBillStorage(): BillStorage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function isStoredInvoice(value: unknown): value is Invoice {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const bill = value as Partial<Invoice>;
+  return (
+    typeof bill.id === "string" &&
+    bill.id !== "" &&
+    typeof bill.workTitle === "string" &&
+    typeof bill.amount === "number" &&
+    Number.isInteger(bill.amount) &&
+    bill.amount > 0 &&
+    typeof bill.clientMark === "string" &&
+    (bill.state === "paid" || bill.state === "unpaid") &&
+    (bill.paidAmount === null || typeof bill.paidAmount === "number") &&
+    (bill.paidOn === null || typeof bill.paidOn === "string")
+  );
+}
+
+function loadBills(storage: BillStorage | null): Invoice[] {
+  if (!storage) {
+    return [];
+  }
+  try {
+    const text = storage.getItem(BILLS_STORAGE_KEY);
+    if (!text) {
+      return [];
+    }
+    const parsed = JSON.parse(text) as unknown;
+    if (!Array.isArray(parsed) || !parsed.every(isStoredInvoice)) {
+      return [];
+    }
+    return parsed;
+  } catch {
+    return [];
+  }
+}
+
+export function createStore(storage: BillStorage | null = defaultBillStorage()) {
+  const invoices: Invoice[] = loadBills(storage);
   const claims: StoredClaim[] = [];
   let nextClaim = 0;
+
+  function saveBills(): void {
+    if (!storage) {
+      return;
+    }
+    try {
+      storage.setItem(BILLS_STORAGE_KEY, JSON.stringify(invoices));
+    } catch {
+      // A full or blocked storage must not break making bills.
+      // The bill still lives in this page; it just will not
+      // survive a refresh.
+    }
+  }
 
   return {
     invoices,
@@ -44,6 +115,7 @@ export function createStore() {
     addInvoice(input: CreateInvoiceInput): Invoice {
       const invoice = createInvoice(input);
       invoices.push(invoice);
+      saveBills();
       return invoice;
     },
     getInvoice(id: string): Invoice | undefined {
@@ -58,6 +130,7 @@ export function createStore() {
       }
       const invoice = invoiceFromPayLink(data);
       invoices.push(invoice);
+      saveBills();
       return invoice;
     },
     payInvoice(id: string, paidOn: string = today()): Invoice | undefined {
@@ -72,6 +145,7 @@ export function createStore() {
       }
       const paid = markPaid(invoices[index], invoices[index].amount, paidOn);
       invoices[index] = paid;
+      saveBills();
       return paid;
     },
     addClaim(invoiceId: string, showAmount: boolean): StoredClaim | undefined {
