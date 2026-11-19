@@ -125,3 +125,29 @@ small, tested hard, and reviewed twice before it ships.
 - The fee sponsor pays fees for anyone by design on test
   networks. That is fine with fake money; it is not a main
   network answer and no real money wording exists anywhere.
+
+## Owner walk on the trial copy (2026-11-18, all passed)
+- Warning is on screen before any typing.
+- Short password refused; mismatched passwords refused.
+- Create works; backup code shown once.
+- Lock works; wrong password gives the one plain message.
+- Connect on the trial copy ends with "Timeout awaiting RPC
+  Get Node Info", as expected with no network program on the
+  owner's computer. Owner decision: leave the clickable
+  connect step for now.
+- Remove then restore from the backup code brought back the
+  same address.
+- Browser storage check: only the sealed ppv1 box is stored.
+- Owner note: the backup text box can be resized by hand.
+  Not a focus now; the UI slice will handle it.
+
+## Owner directive (2026-11-18): real testing, no test crutches
+- Test accounts must not be hardwired into the actual app
+  testing flow. Testing should be real time, with real
+  wallets and real data shape, so what passes here is ready
+  to run in the real world. Tests that only pass on garbage
+  values or shared test keys do not count as proof.
+- What this changes next: the client side needs its own real
+  wallet too (it is still a test account under this plan),
+  and the public test network run must use real user wallets
+  end to end before we call the flow proven for strangers.
