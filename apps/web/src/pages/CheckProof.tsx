@@ -16,7 +16,12 @@ function decodePayload(id: string): ProofPayload | null {
     const parsed = JSON.parse(
       decodeURIComponent(atob(id.slice(2))),
     ) as ProofPayload;
-    if (!parsed.claim || typeof parsed.billId !== "number") {
+    if (
+      !parsed.claim ||
+      typeof parsed.billId !== "number" ||
+      !Number.isSafeInteger(parsed.billId) ||
+      parsed.billId <= 0
+    ) {
       return null;
     }
     return parsed;
@@ -29,6 +34,9 @@ export default function CheckProof({ store, id }: { store: Store; id: string }) 
   const payload = decodePayload(id);
   const stored = payload ? null : store.getClaim(id);
   const [chainNote, setChainNote] = useState<string | null>(null);
+  const [chainStatus, setChainStatus] = useState<
+    "waiting" | "valid" | "broken" | "unchecked"
+  >("waiting");
 
   useEffect(() => {
     if (!payload) {
@@ -37,16 +45,25 @@ export default function CheckProof({ store, id }: { store: Store; id: string }) 
     let live = true;
     void checkMarkedProofLive({ claim: payload.claim, billId: payload.billId })
       .then((result) => {
-        if (!live || result === null) {
+        if (!live) {
           return;
         }
+        if (result === null) {
+          setChainStatus("unchecked");
+          return;
+        }
+        setChainStatus(result);
         setChainNote(
           result === "valid"
             ? "The network mark matches this proof."
             : "The network mark does not match this proof.",
         );
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (live) {
+          setChainStatus("unchecked");
+        }
+      });
     return () => {
       live = false;
     };
@@ -55,16 +72,37 @@ export default function CheckProof({ store, id }: { store: Store; id: string }) 
   if (payload) {
     const result = checkClaim(payload.claim, today());
     const claim = payload.claim;
+    if (
+      typeof claim.text !== "string" ||
+      typeof claim.expiresAt !== "string" ||
+      !(claim.amount === null || typeof claim.amount === "number")
+    ) {
+      return (
+        <main style={{ fontFamily: "sans-serif", maxWidth: 640, margin: "40px auto", padding: 16 }}>
+          <h1 style={{ fontSize: 28 }}>Payment proof check</h1>
+          <p style={{ fontSize: 36, color: "red", fontWeight: "bold" }}>This proof is not valid.</p>
+        </main>
+      );
+    }
     return (
       <main style={{ fontFamily: "sans-serif", maxWidth: 640, margin: "40px auto", padding: 16 }}>
         <h1 style={{ fontSize: 28 }}>Payment proof check</h1>
-        {result === "valid" && (
+        {result === "valid" && chainStatus === "valid" && (
           <p style={{ fontSize: 36, color: "green", fontWeight: "bold" }}>Valid</p>
+        )}
+        {result === "valid" && chainStatus !== "valid" && chainStatus !== "broken" && (
+          <>
+            <p style={{ fontSize: 36, color: "#b26a00", fontWeight: "bold" }}>Words match only</p>
+            <p style={{ fontSize: 18 }}>
+              The network mark was not checked on this page, so this
+              proof is not called valid here.
+            </p>
+          </>
         )}
         {result === "expired" && (
           <p style={{ fontSize: 36, color: "#b26a00", fontWeight: "bold" }}>This proof has run out.</p>
         )}
-        {result === "broken" && (
+        {(result === "broken" || (result === "valid" && chainStatus === "broken")) && (
           <p style={{ fontSize: 36, color: "red", fontWeight: "bold" }}>This proof is not valid.</p>
         )}
         <p style={{ fontSize: 22 }}>{claim.text}</p>
@@ -97,7 +135,13 @@ export default function CheckProof({ store, id }: { store: Store; id: string }) 
     <main style={{ fontFamily: "sans-serif", maxWidth: 640, margin: "40px auto", padding: 16 }}>
       <h1 style={{ fontSize: 28 }}>Payment proof check</h1>
       {result === "valid" && (
-        <p style={{ fontSize: 36, color: "green", fontWeight: "bold" }}>Valid</p>
+        <>
+          <p style={{ fontSize: 36, color: "#b26a00", fontWeight: "bold" }}>Words match only</p>
+          <p style={{ fontSize: 18 }}>
+            The network mark was not checked on this page, so this
+            proof is not called valid here.
+          </p>
+        </>
       )}
       {result === "expired" && (
         <p style={{ fontSize: 36, color: "#b26a00", fontWeight: "bold" }}>This proof has run out.</p>

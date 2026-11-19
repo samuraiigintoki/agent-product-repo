@@ -109,6 +109,7 @@ export function invoiceFromPayLink(data: PayLinkData): Invoice {
     state: "unpaid",
     paidAmount: null,
     paidOn: null,
+    side: "sent",
     ...(data.workerAddress && data.billId
       ? {
           chainWorkerAddress: data.workerAddress,

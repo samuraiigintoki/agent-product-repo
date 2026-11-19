@@ -2,7 +2,8 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import WalletPanel from "./WalletPanel";
-import { lockUserWallet } from "../chain/userWallet";
+import { lockUserWallet, type WalletStorage } from "../chain/userWallet";
+import { WALLET_BOX_KEY } from "../chain/keyVault";
 import { dropChainSession } from "../chain/session";
 
 beforeEach(() => {
@@ -51,6 +52,26 @@ describe("wallet panel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Unlock my wallet" }));
     expect(
       await screen.findByText(/Wrong password or damaged backup/),
+    ).toBeTruthy();
+  });
+
+  it("still offers restore and remove when the stored wallet box is damaged", () => {
+    const raw = new Map<string, string>([[WALLET_BOX_KEY, "damaged"]]);
+    const storage: WalletStorage = {
+      getItem: (key) => raw.get(key) ?? null,
+      setItem: (key, value) => {
+        raw.set(key, value);
+      },
+      removeItem: (key) => {
+        raw.delete(key);
+      },
+    };
+    render(<WalletPanel storage={storage} />);
+    expect(
+      screen.getByRole("button", { name: "Restore my wallet" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Remove wallet from this device" }),
     ).toBeTruthy();
   });
 

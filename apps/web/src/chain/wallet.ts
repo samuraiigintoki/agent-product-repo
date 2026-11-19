@@ -85,8 +85,13 @@ export async function createUserChainSession(
 ): Promise<UserChainSession> {
   const userKeys = parseUserKeys(material);
 
-  const node = createAztecNodeClient(nodeUrl);
-  await waitForNode(node);
+  let node: ReturnType<typeof createAztecNodeClient>;
+  try {
+    node = createAztecNodeClient(nodeUrl);
+    await waitForNode(node);
+  } catch {
+    throw new Error("The network cannot be reached at this address.");
+  }
 
   const wallet = await EmbeddedWallet.create(node, {
     ephemeral: true,
@@ -106,7 +111,11 @@ export async function createUserChainSession(
     let contractAddress: AztecAddress;
     let deployedHere = false;
     if (AZTEC_CONTRACT_ADDRESS !== "") {
-      contractAddress = AztecAddress.schema.parse(AZTEC_CONTRACT_ADDRESS);
+      try {
+        contractAddress = AztecAddress.schema.parse(AZTEC_CONTRACT_ADDRESS);
+      } catch {
+        throw new Error("The contract address setting is not valid.");
+      }
     } else {
       const { contract } = await Contract.deploy(wallet, artifact, []).send({
         from: account,

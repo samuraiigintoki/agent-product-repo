@@ -48,7 +48,7 @@ describe("pay link opened on a fresh device", () => {
   });
 
   it("My pay can show the final network link again later", () => {
-    const store = createStore();
+    const store = createStore(null);
     const invoice = store.addInvoice({
       workTitle: "Logo design",
       amount: 1250,

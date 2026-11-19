@@ -11,9 +11,14 @@ const chain = vi.hoisted(() => {
 });
 
 vi.mock("../chain/session", () => ({
-  billIdFor: () => 7,
-  chainWorkerAddress: () => `0x${"a".repeat(64)}`,
-  createInvoiceLive: () => chain.promise,
+  reserveInvoiceBillIdLive: async () => ({
+    billId: 7,
+    workerAddress: `0x${"a".repeat(64)}`,
+  }),
+  createInvoiceLive: async () => {
+    await chain.promise;
+    return { billId: 7, workerAddress: `0x${"a".repeat(64)}` };
+  },
   hasChainSession: () => true,
 }));
 
