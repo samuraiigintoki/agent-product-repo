@@ -55,6 +55,108 @@ function parseUserKeys(material: KeyMaterial): {
   }
 }
 
+// One actor on chain: a contract handle, the account acting,
+// and how its fees are paid. Chain calls take this, so the
+// same call works for the user's wallet in the app and for
+// test account actors in plumbing checks.
+export interface ActorSession {
+  nodeUrl: string;
+  contract: Contract;
+  account: AztecAddress;
+  fee: FeePaymentMethod | null;
+}
+
+// The app session: exactly ONE wallet, the user's own, in one
+// role. A browser allows only one wallet store per site, so
+// opening three wallet engines in one page (the old test
+// account habit) breaks with a store already in use error.
+// One wallet per page is both the browser rule and the real
+// product shape.
+export interface UserChainSession extends ActorSession {
+  wallet: EmbeddedWallet;
+  userRole: Role;
+  contractAddress: AztecAddress;
+}
+
+export async function createUserChainSession(
+  nodeUrl = AZTEC_NODE_URL,
+  material: KeyMaterial,
+  userRole: Role,
+): Promise<UserChainSession> {
+  const userKeys = parseUserKeys(material);
+
+  const node = createAztecNodeClient(nodeUrl);
+  await waitForNode(node);
+
+  const wallet = await EmbeddedWallet.create(node, {
+    ephemeral: true,
+    // Proving off only on a local network, where unproven
+    // work is accepted. Public networks need real proofs.
+    pxe: { proverEnabled: !isLocalNodeUrl(nodeUrl) },
+  });
+  try {
+    const accountManager = await wallet.createSchnorrInitializerlessAccount(
+      userKeys.secret,
+      userKeys.salt,
+      userKeys.signingKey,
+    );
+    const account = accountManager.address;
+    const fee = await sponsoredFeeFor(wallet);
+
+    let contractAddress: AztecAddress;
+    let deployedHere = false;
+    if (AZTEC_CONTRACT_ADDRESS !== "") {
+      contractAddress = AztecAddress.schema.parse(AZTEC_CONTRACT_ADDRESS);
+    } else {
+      const { contract } = await Contract.deploy(wallet, artifact, []).send({
+        from: account,
+        fee: { paymentMethod: fee },
+      });
+      contractAddress = contract.address;
+      deployedHere = true;
+    }
+
+    const instance = await node.getContract(contractAddress);
+    if (!instance) {
+      throw new Error("The contract cannot be seen on this network.");
+    }
+    if (!deployedHere) {
+      await wallet.registerContract(instance, artifact);
+    }
+    const contract = await Contract.at(contractAddress, artifact, wallet);
+
+    return {
+      nodeUrl,
+      wallet,
+      contract,
+      account,
+      fee,
+      userRole,
+      contractAddress,
+    };
+  } catch (error) {
+    await wallet.stop().catch(() => {});
+    throw error;
+  }
+}
+
+// PLUMBING ONLY: actor view of one role inside a test account
+// session, for code tests. The app never builds these; it
+// uses createUserChainSession above.
+export function actorFor(session: ChainSession, role: Role): ActorSession {
+  return {
+    nodeUrl: session.nodeUrl,
+    contract: session.contracts[role],
+    account: session.accounts[role],
+    fee:
+      role === "worker"
+        ? session.workerFee
+        : role === "client"
+          ? session.clientFee
+          : null,
+  };
+}
+
 // Builds one chain session. Each role gets its own wallet and
 // private note store, following the official two wallet guide:
 // before a wallet can see notes from a sender, it must register

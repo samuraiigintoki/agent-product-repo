@@ -264,6 +264,24 @@ unit tests say.
   browsers on the trial copy, by the owner. Browser proving
   times are only known when that walk happens.
 
+- Browser bug found by the owner walk 2026-11-19, fixed the
+  same day. The browser allows only one wallet store per
+  site, and the app session was opening three wallet engines
+  in one page, a leftover of the test account flow. The
+  owner hit "SQLite-OPFS pool already in use" on connect.
+  Fix: the app session is now exactly one wallet, the
+  user's own (chain/wallet.ts createUserChainSession), and
+  ending or replacing a session closes its wallet store
+  (wallet.stop). Chain calls take a small actor shape
+  (contract, account, fee) so plumbing checks can still
+  build test actors without the app ever doing so. If a
+  second tab still holds the store, connect now says so in
+  plain words. Fast suite 67 green, type check and build
+  clean, and the scripted acceptance run passed again after
+  the fix (connects got faster: 2 to 4s, one wallet instead
+  of three). Owner re-walk on the rebuilt trial copy is the
+  remaining step before merge.
+
 ## Known limits that stay, named on purpose
 - The proof is still the device side tamper seal. The
   unforgeable on chain proof is its own later slice.

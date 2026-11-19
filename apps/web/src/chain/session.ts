@@ -1,22 +1,43 @@
-import type { ChainSession, Role } from "./wallet";
+import type { Role, UserChainSession } from "./wallet";
 import { AZTEC_NODE_URL } from "./settings";
 import type { ReceiptView } from "./invoiceChain";
 import { isWalletOpen, openKeyMaterial } from "./userWallet";
 
-// Holds the live network session for the pages. The chain
-// code is loaded only when a person connects, so the on
-// device path stays light. The only way in is the user's own
-// wallet. Test accounts exist inside code tests only; no app
-// screen can sign in with one. Do not wire them back in.
-let session: ChainSession | null = null;
-let role: Role = "worker";
+// Holds the live network session for the pages: ONE wallet,
+// the user's own, in one role. The chain code is loaded only
+// when a person connects, so the on device path stays light.
+// Test accounts exist inside code tests only; no app screen
+// can sign in with one. Do not wire them back in.
+let session: UserChainSession | null = null;
 const billIds = new Map<string, number>();
 let nextBillId = 1;
 
+async function stopSession(): Promise<void> {
+  const old = session;
+  session = null;
+  if (old) {
+    try {
+      await old.wallet.stop();
+    } catch {
+      // Closing is best effort; a stuck close must not block
+      // locking the wallet on screen.
+    }
+  }
+}
+
+// Drops the live session and closes its wallet store. Called
+// when the wallet is locked or removed, so nothing on the
+// network side keeps working with keys the user just put
+// away, and so the browser wallet store is free for the next
+// connect (only one store may live per site).
+export function dropChainSession(): void {
+  void stopSession();
+}
+
 // Connects the unlocked user wallet in one role: "worker" to
 // make bills, "client" to pay one. One session holds one user
-// role. Any older session is replaced, so the role on chain
-// is the user's own address from this point.
+// role. Any older session is closed first, wallet store and
+// all, before the new one opens.
 export async function signInWithUserWallet(
   nextRole: Role = "worker",
 ): Promise<void> {
@@ -24,9 +45,21 @@ export async function signInWithUserWallet(
   if (!material) {
     throw new Error("Unlock your wallet first.");
   }
-  const { createChainSession } = await import("./wallet");
-  session = await createChainSession(AZTEC_NODE_URL, material, nextRole);
-  role = nextRole;
+  await stopSession();
+  const { createUserChainSession } = await import("./wallet");
+  try {
+    session = await createUserChainSession(AZTEC_NODE_URL, material, nextRole);
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.includes("already in use")
+    ) {
+      throw new Error(
+        "The wallet store is open in another tab of this site. Close the other tabs, then connect again.",
+      );
+    }
+    throw error;
+  }
 }
 
 export function hasChainSession(): boolean {
@@ -43,19 +76,12 @@ export function connectedUserRole(): Role | null {
   return session?.userRole ?? null;
 }
 
-// Drops the live session. Called when the wallet is locked or
-// removed, so nothing on the network side keeps working with
-// keys the user just put away.
-export function dropChainSession(): void {
-  session = null;
-}
-
-// Actions from a user wallet need the wallet still open.
+// Actions from the user wallet need the wallet still open.
 // Locking drops the session in the screens; this is the second
 // lock on the door for any path that missed it.
 function throwIfUserWalletLocked(): void {
-  if (session?.userRole && !isWalletOpen()) {
-    session = null;
+  if (session && !isWalletOpen()) {
+    dropChainSession();
     throw new Error(
       "Your wallet is locked. Unlock it to use the network.",
     );
@@ -97,7 +123,7 @@ export async function createInvoiceLive(input: {
 // The worker address of the live session, so the invoice
 // page can put the real pay targets into a version 2 link.
 export function chainWorkerAddress(): string | null {
-  return session ? session.accounts.worker.toString() : null;
+  return session ? session.account.toString() : null;
 }
 
 export async function payInvoiceLive(input: {
@@ -106,6 +132,8 @@ export async function payInvoiceLive(input: {
   // Set when the pay link (version 2) names the worker and
   // the chain bill number. Then the pay goes to that worker,
   // who may live on a device this session has never met.
+  // Without it there is nothing true to pay against, and the
+  // pay stays on this device only.
   workerAddress?: string;
   billId?: number;
 }): Promise<{ seconds: number } | null> {
@@ -117,17 +145,14 @@ export async function payInvoiceLive(input: {
       "This wallet is connected to make bills. Connect as client to pay.",
     );
   }
-  if (session.userRole === "client") {
-    throwIfUserWalletLocked();
+  throwIfUserWalletLocked();
+  if (!input.workerAddress) {
+    return null;
   }
   const { payInvoiceOnChain } = await import("./payChain");
-  let worker = session.accounts.worker;
-  if (input.workerAddress) {
-    const { AztecAddress } = await import("@aztec-labs/aztec.js/addresses");
-    worker = AztecAddress.schema.parse(input.workerAddress);
-  }
+  const { AztecAddress } = await import("@aztec-labs/aztec.js/addresses");
   return payInvoiceOnChain(session, {
-    worker,
+    worker: AztecAddress.schema.parse(input.workerAddress),
     billId: input.billId ?? billIdFor(input.webInvoiceId),
     amount: input.amount,
     payerMark: 99,
@@ -138,11 +163,12 @@ export async function readMyReceiptsLive(): Promise<ReceiptView | null> {
   if (!session) {
     return null;
   }
-  if (role === "worker") {
-    throwIfUserWalletLocked();
+  if (session.userRole !== "worker") {
+    return null;
   }
+  throwIfUserWalletLocked();
   const { readReceiptsOnChain } = await import("./invoiceChain");
-  return readReceiptsOnChain(session, role);
+  return readReceiptsOnChain(session);
 }
 
 export async function checkMarkedProofLive(input: {
@@ -158,14 +184,14 @@ export async function checkMarkedProofLive(input: {
   return result === "valid" ? "valid" : "broken";
 }
 
-export async function currentSessionForProof(): Promise<ChainSession | null> {
+export async function currentSessionForProof(): Promise<UserChainSession | null> {
   if (!session) {
     return null;
   }
   // Marking a proof is a worker write; a locked user wallet
   // must not mark anything.
   if (session.userRole === "worker" && !isWalletOpen()) {
-    session = null;
+    dropChainSession();
     return null;
   }
   return session;

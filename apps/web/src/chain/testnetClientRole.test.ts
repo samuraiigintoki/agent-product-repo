@@ -18,7 +18,7 @@ import artifactJson from "./payment_proof_artifact.json";
 import { AZTEC_CONTRACT_ADDRESS, AZTEC_NODE_URL } from "./settings";
 import { createKeyMaterial } from "./keyVault";
 import { deriveWalletAddress } from "./userWallet";
-import { createChainSession } from "./wallet";
+import { actorFor, createChainSession } from "./wallet";
 import { payInvoiceOnChain } from "./payChain";
 import { sponsoredFeeFor } from "./feeSponsor";
 
@@ -65,7 +65,7 @@ describe("client role session pays a stranger worker (Task 3 live)", () => {
       expect(session.accounts.client.toString()).toBe(clientAddress);
       expect(session.clientFee).not.toBeNull();
 
-      const paid = await payInvoiceOnChain(session, {
+      const paid = await payInvoiceOnChain(actorFor(session, "client"), {
         worker: workerAccount.address,
         billId,
         amount: 1250,

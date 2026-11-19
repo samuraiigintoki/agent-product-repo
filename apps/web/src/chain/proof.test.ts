@@ -4,7 +4,7 @@
 // product proof; real wallet proof lives in the testnet
 // spikes and the slice acceptance run.
 import { describe, expect, it } from "vitest";
-import { createChainSession, type ChainSession } from "./wallet";
+import { actorFor, createChainSession, type ChainSession } from "./wallet";
 import { createInvoiceOnChain, readReceiptsOnChain } from "./invoiceChain";
 import { payInvoiceOnChain } from "./payChain";
 import {
@@ -29,9 +29,9 @@ const paidInvoice: Invoice = {
 
 async function paidSession(): Promise<ChainSession> {
   const session = await createChainSession();
-  await createInvoiceOnChain(session, { billId: 42, amount: 1250, dueMark: 7 });
-  await payInvoiceOnChain(session, { worker: session.accounts.worker, billId: 42, amount: 1250, payerMark: 99 });
-  const receipt = await readReceiptsOnChain(session, "worker");
+  await createInvoiceOnChain(actorFor(session, "worker"), { billId: 42, amount: 1250, dueMark: 7 });
+  await payInvoiceOnChain(actorFor(session, "client"), { worker: session.accounts.worker, billId: 42, amount: 1250, payerMark: 99 });
+  const receipt = await readReceiptsOnChain(actorFor(session, "worker"));
   expect(receipt.count).toBe(1);
   return session;
 }
@@ -42,9 +42,9 @@ describe("single payment proof", () => {
     async () => {
       const session = await paidSession();
       const claim = buildClaimForBill(paidInvoice, false, "2027-05-18");
-      await markProofOnChain(session, claim, 42);
+      await markProofOnChain(actorFor(session, "worker"), claim, 42);
       expect(claim.amount).toBeNull();
-      const result = await checkProof(session, claim, 42, "2026-12-01");
+      const result = await checkProof(actorFor(session, "worker"), claim, 42, "2026-12-01");
       expect(result).toBe("valid");
     },
     600_000,
@@ -55,10 +55,10 @@ describe("single payment proof", () => {
     async () => {
       const session = await paidSession();
       const claim = buildClaimForBill(paidInvoice, true, "2027-05-18");
-      await markProofOnChain(session, claim, 42);
+      await markProofOnChain(actorFor(session, "worker"), claim, 42);
 
       const editedAmount = { ...claim, amount: 900 };
-      expect(await checkProof(session, editedAmount, 42, "2026-12-01")).toBe(
+      expect(await checkProof(actorFor(session, "worker"), editedAmount, 42, "2026-12-01")).toBe(
         "broken",
       );
 
@@ -66,16 +66,16 @@ describe("single payment proof", () => {
         ...claim,
         text: "This bill was paid in full on 2020-01-01.",
       };
-      expect(await checkProof(session, editedDate, 42, "2026-12-01")).toBe(
+      expect(await checkProof(actorFor(session, "worker"), editedDate, 42, "2026-12-01")).toBe(
         "broken",
       );
 
-      expect(await checkProof(session, claim, 42, "2027-06-01")).toBe(
+      expect(await checkProof(actorFor(session, "worker"), claim, 42, "2027-06-01")).toBe(
         "expired",
       );
 
       // The public mark read back holds only the expiry number.
-      const stored = await readProofExpiryOnChain(session, claim, 42);
+      const stored = await readProofExpiryOnChain(actorFor(session, "worker"), claim, 42);
       expect(stored).toBe(expiryNumber("2027-05-18"));
       expect(stored).not.toBe(1250);
       expect(claimHash(claim, 42)).not.toBe(1250n);

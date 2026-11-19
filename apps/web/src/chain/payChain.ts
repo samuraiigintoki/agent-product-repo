@@ -1,15 +1,15 @@
 import { createAztecNodeClient } from "@aztec-labs/aztec.js/node";
 import type { AztecAddress } from "@aztec-labs/aztec.js/addresses";
-import type { ChainSession } from "./wallet";
+import type { ActorSession } from "./wallet";
 
-// Pays one bill from the client account to a named worker, in
+// Pays one bill from the acting account to a named worker, in
 // private. The worker is an input, not read from the session,
 // so a client on another device can pay a worker they have
 // never shared a session with. Returns how many seconds the
 // step took, so the page can show a calm waiting note with a
 // real time, not a fake one.
 export async function payInvoiceOnChain(
-  session: ChainSession,
+  actor: ActorSession,
   input: {
     worker: AztecAddress;
     billId: number;
@@ -17,10 +17,10 @@ export async function payInvoiceOnChain(
     payerMark: number;
   },
 ): Promise<{ seconds: number }> {
-  const node = createAztecNodeClient(session.nodeUrl);
+  const node = createAztecNodeClient(actor.nodeUrl);
   const paidBlock = await node.getBlockNumber();
   const started = Date.now();
-  await session.contracts.client.methods
+  await actor.contract.methods
     .pay_invoice(
       input.worker,
       input.billId,
@@ -29,10 +29,8 @@ export async function payInvoiceOnChain(
       paidBlock,
     )
     .send({
-      from: session.accounts.client,
-      ...(session.clientFee
-        ? { fee: { paymentMethod: session.clientFee } }
-        : {}),
+      from: actor.account,
+      ...(actor.fee ? { fee: { paymentMethod: actor.fee } } : {}),
     });
   return { seconds: Math.round((Date.now() - started) / 1000) };
 }

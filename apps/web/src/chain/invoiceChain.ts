@@ -1,4 +1,4 @@
-import type { ChainSession, Role } from "./wallet";
+import type { ActorSession } from "./wallet";
 
 export interface ReceiptView {
   count: number;
@@ -9,26 +9,23 @@ export interface ReceiptView {
 }
 
 export async function createInvoiceOnChain(
-  session: ChainSession,
+  actor: ActorSession,
   input: { billId: number; amount: number; dueMark: number },
 ): Promise<void> {
-  await session.contracts.worker.methods
+  await actor.contract.methods
     .create_invoice(input.billId, input.amount, input.dueMark)
     .send({
-      from: session.accounts.worker,
-      ...(session.workerFee
-        ? { fee: { paymentMethod: session.workerFee } }
-        : {}),
+      from: actor.account,
+      ...(actor.fee ? { fee: { paymentMethod: actor.fee } } : {}),
     });
 }
 
 export async function readReceiptsOnChain(
-  session: ChainSession,
-  role: Role,
+  actor: ActorSession,
 ): Promise<ReceiptView> {
-  const { result } = await session.contracts[role].methods
-    .read_receipts(session.accounts[role])
-    .simulate({ from: session.accounts[role] });
+  const { result } = await actor.contract.methods
+    .read_receipts(actor.account)
+    .simulate({ from: actor.account });
   const fields = result as unknown[];
   const toNumber = (value: unknown): number => {
     if (typeof value === "bigint") {
