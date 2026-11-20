@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
 import type { Store } from "../domain/store";
 import { sixMonthsFrom, today } from "../domain/store";
-import { billIdFor, hasChainSession } from "../chain/session";
+import { billIdFor, connectedUserRole, hasChainSession } from "../chain/session";
+import RoleBoundary from "./RoleBoundary";
 import { buildClaimForBill } from "../chain/proofChain";
 
 export default function MakeProof({ store }: { store: Store }) {
@@ -64,6 +65,10 @@ export default function MakeProof({ store }: { store: Store }) {
       setMaking(false);
     }
   };
+
+  if (connectedUserRole() === "client") {
+    return <RoleBoundary needed="worker" />;
+  }
 
   return (
     <main style={{ fontFamily: "sans-serif", maxWidth: 640, margin: "40px auto", padding: 16 }}>

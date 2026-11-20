@@ -20,6 +20,7 @@ vi.mock("../chain/session", () => ({
     return { billId: 7, workerAddress: `0x${"a".repeat(64)}` };
   },
   hasChainSession: () => true,
+  connectedUserRole: () => "worker",
 }));
 
 import Invoice from "./Invoice";

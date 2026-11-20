@@ -3,7 +3,10 @@ import type { Store } from "../domain/store";
 import type { Invoice } from "../domain/invoice";
 import { encodePayLink } from "../domain/payLink";
 import type { ReceiptView } from "../chain/invoiceChain";
+import { connectedUserRole } from "../chain/session";
 import type { BillPaymentView, ChainBillTarget } from "../chain/session";
+import RoleBoundary from "./RoleBoundary";
+import { copyText } from "./copyText";
 
 export default function MyPay({
   store,
@@ -118,6 +121,10 @@ export default function MyPay({
     }
   };
 
+  if (connectedUserRole() === "client") {
+    return <RoleBoundary needed="worker" />;
+  }
+
   return (
     <main style={{ fontFamily: "sans-serif", maxWidth: 640, margin: "40px auto", padding: 16 }}>
       <h1 style={{ fontSize: 28 }}>My pay</h1>
@@ -160,11 +167,15 @@ export default function MyPay({
                   </p>
                   <button
                     style={{ fontSize: 18, padding: 12 }}
-                    onClick={() => {
-                      window.location.hash = networkLink;
+                    onClick={async () => {
+                      setPaymentNote(
+                        (await copyText(networkLink))
+                          ? "Link copied."
+                          : "Copy the link above by hand.",
+                      );
                     }}
                   >
-                    Open pay page
+                    Copy link
                   </button>
                 </div>
               )}

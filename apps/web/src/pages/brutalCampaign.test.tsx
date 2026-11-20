@@ -14,11 +14,12 @@ const chain = vi.hoisted(() => ({
   createFails: false,
   invoiceRoleWrong: false,
   proofResult: null as "valid" | "broken" | null,
+  role: "worker" as "worker" | "client",
 }));
 
 vi.mock("../chain/session", () => ({
   hasChainSession: () => chain.session,
-  connectedUserRole: () => (chain.session ? "client" : null),
+  connectedUserRole: () => (chain.session ? chain.role : null),
   connectedAccountAddress: () =>
     chain.session ? `0x${"0".repeat(60)}babe` : null,
   dropChainSession: async () => {},
@@ -91,6 +92,7 @@ function resetChain() {
   chain.createFails = false;
   chain.invoiceRoleWrong = false;
   chain.proofResult = null;
+  chain.role = "worker";
 }
 
 function makeLink(store: ReturnType<typeof createStore>) {
@@ -119,6 +121,7 @@ describe("brutal campaign: pages under attack", () => {
     client.payInvoice(bill.id, "2026-11-19");
     expect(client.getInvoice(bill.id)?.paidOnNetwork).toBeFalsy();
 
+    chain.role = "client";
     render(<Pay store={client} id={segment} />);
     expect(screen.getByText(/marked paid on this device only/)).toBeTruthy();
     const button = screen.getByRole("button", { name: "Pay this bill" });
@@ -137,6 +140,7 @@ describe("brutal campaign: pages under attack", () => {
     const workerStore = createStore(memoryStorage());
     const { bill, segment } = makeLink(workerStore);
     const client = createStore(memoryStorage());
+    chain.role = "client";
     render(<Pay store={client} id={segment} />);
     fireEvent.click(screen.getByRole("button", { name: "Pay this bill" }));
     expect(await screen.findByText(/already paid on the network/)).toBeTruthy();
@@ -145,25 +149,28 @@ describe("brutal campaign: pages under attack", () => {
 
   it("wrong role reaches the person on both the pay and invoice pages", async () => {
     resetChain();
-    chain.payBehavior = "role";
+    // A network link opened while the wallet is connected as
+    // the worker shows the boundary screen at once. The pay
+    // form is never drawn, so no click is needed to be
+    // stopped. The session layer refuses the call too.
     const workerStore = createStore(memoryStorage());
     const { segment } = makeLink(workerStore);
     render(<Pay store={createStore(memoryStorage())} id={segment} />);
-    fireEvent.click(screen.getByRole("button", { name: "Pay this bill" }));
-    expect(await screen.findByText(/connected to make bills/)).toBeTruthy();
+    expect(screen.getByText(/connected to make bills/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Pay this bill" })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Switch to paying bills" }),
+    ).toBeTruthy();
+    expect(chain.payCalls).toBe(0);
     cleanup();
 
-    chain.invoiceRoleWrong = true;
+    // The invoice page with a client session shows its
+    // boundary before any form field exists.
+    chain.role = "client";
     const store = createStore(memoryStorage());
     render(<Invoice store={store} />);
-    fireEvent.change(screen.getByLabelText("Work title"), {
-      target: { value: "Trial work" },
-    });
-    fireEvent.change(screen.getByLabelText("Amount"), {
-      target: { value: "500" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Make invoice" }));
-    expect(await screen.findByText(/connected to pay bills/)).toBeTruthy();
+    expect(screen.getByText(/connected to pay bills/)).toBeTruthy();
+    expect(screen.queryByLabelText("Work title")).toBeNull();
     expect(screen.queryByText(/#\/pay\//)).toBeNull();
   });
 

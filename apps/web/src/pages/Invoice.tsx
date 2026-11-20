@@ -1,9 +1,12 @@
 import { useRef, useState } from "react";
 import {
+  connectedUserRole,
   createInvoiceLive,
   hasChainSession,
   reserveInvoiceBillIdLive,
 } from "../chain/session";
+import RoleBoundary from "./RoleBoundary";
+import { copyText } from "./copyText";
 import type { Store } from "../domain/store";
 import {
   parseAmountInput,
@@ -83,6 +86,10 @@ export default function Invoice({ store }: { store: Store }) {
       setWriting(false);
     }
   };
+
+  if (connectedUserRole() === "client") {
+    return <RoleBoundary needed="worker" />;
+  }
 
   return (
     <main style={{ fontFamily: "sans-serif", maxWidth: 640, margin: "40px auto", padding: 16 }}>
@@ -221,11 +228,15 @@ export default function Invoice({ store }: { store: Store }) {
           <p style={{ fontSize: 18, wordBreak: "break-all" }}>{link}</p>
           <button
             style={{ fontSize: 18, padding: 12 }}
-            onClick={() => {
-              window.location.hash = link;
+            onClick={async () => {
+              setChainNote(
+                (await copyText(link))
+                  ? "Link copied."
+                  : "Copy the link above by hand.",
+              );
             }}
           >
-            Open pay page
+            Copy link
           </button>
         </div>
       )}
