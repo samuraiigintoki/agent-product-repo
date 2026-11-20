@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useElapsedSeconds } from "./useElapsedSeconds";
 import {
   createUserWallet,
   hasUserWallet,
@@ -37,6 +38,8 @@ export default function WalletPanel({
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [confirmRestore, setConfirmRestore] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const connectSeconds = useElapsedSeconds(connecting);
   const busyRef = useRef(false);
 
   const refresh = () => setTick((value) => value + 1);
@@ -96,7 +99,8 @@ export default function WalletPanel({
   });
 
   const connect = async (role: "worker" | "client") => runBusy(async () => {
-    setNote("Connecting your wallet to the network. This can take a few seconds.");
+    setNote("Connecting your wallet to the network.");
+    setConnecting(true);
     try {
       await signInWithUserWallet(role);
       setNote(
@@ -107,6 +111,8 @@ export default function WalletPanel({
       refresh();
     } catch (error) {
       fail(error);
+    } finally {
+      setConnecting(false);
     }
   });
 
@@ -350,11 +356,16 @@ export default function WalletPanel({
         </div>
       )}
 
-      {note !== null && (
+      {connecting ? (
+        <p role="alert" style={{ fontSize: 18 }}>
+          Connecting your wallet to the network. {connectSeconds} seconds
+          so far. Do not close this page.
+        </p>
+      ) : note !== null ? (
         <p role="alert" style={{ fontSize: 18 }}>
           {note}
         </p>
-      )}
+      ) : null}
     </div>
   );
 }

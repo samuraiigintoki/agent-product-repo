@@ -7,6 +7,7 @@ import { connectedUserRole } from "../chain/session";
 import type { BillPaymentView, ChainBillTarget } from "../chain/session";
 import RoleBoundary from "./RoleBoundary";
 import { copyText } from "./copyText";
+import { useElapsedSeconds } from "./useElapsedSeconds";
 
 export default function MyPay({
   store,
@@ -29,6 +30,8 @@ export default function MyPay({
   const [payments, setPayments] = useState<BillPaymentView[] | null>(null);
   const [paymentNote, setPaymentNote] = useState<string | null>(null);
   const [writingId, setWritingId] = useState<string | null>(null);
+  const writingSeconds = useElapsedSeconds(writingId !== null);
+  const readingSeconds = useElapsedSeconds(liveState === "reading");
 
   const ownBills = store.invoices.filter((invoice) => {
     if ((invoice.side ?? "made") !== "made") {
@@ -96,7 +99,7 @@ export default function MyPay({
       return;
     }
     setWritingId(invoice.id);
-    setPaymentNote("Writing the bill on the network. This can take a few seconds.");
+    setPaymentNote("Writing the bill on the network.");
     try {
       const target = await writeLive(invoice);
       if (!target) {
@@ -128,7 +131,15 @@ export default function MyPay({
   return (
     <main style={{ fontFamily: "sans-serif", maxWidth: 640, margin: "40px auto", padding: 16 }}>
       <h1 style={{ fontSize: 28 }}>My pay</h1>
-      {paymentNote !== null && <p style={{ fontSize: 18 }}>{paymentNote}</p>}
+      {writingId !== null ? (
+        <p style={{ fontSize: 18 }}>
+          Writing the bill on the network. Building your private proof,
+          which is the slow part. {writingSeconds} seconds so far, and it
+          can take around half a minute. Do not close this page.
+        </p>
+      ) : paymentNote !== null ? (
+        <p style={{ fontSize: 18 }}>{paymentNote}</p>
+      ) : null}
       {ownBills.length === 0 && (
         <p style={{ fontSize: 18 }}>No bills yet. Make your first invoice from the home page.</p>
       )}
@@ -200,7 +211,8 @@ export default function MyPay({
           </button>
           {liveState === "reading" && (
             <p style={{ fontSize: 18 }}>
-              Reading in private. This can take a few seconds.
+              Reading in private. {readingSeconds} seconds so far. This can
+              take a few seconds.
             </p>
           )}
           {liveState === "off" && (

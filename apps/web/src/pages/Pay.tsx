@@ -12,6 +12,7 @@ import type { Store } from "../domain/store";
 import { decodePayLink } from "../domain/payLink";
 import { shortAddress } from "../chain/userWallet";
 import { copyText } from "./copyText";
+import { useElapsedSeconds } from "./useElapsedSeconds";
 
 const mainStyle = {
   fontFamily: "sans-serif",
@@ -24,6 +25,7 @@ export default function Pay({ store, id }: { store: Store; id: string }) {
   const [, setPaidTick] = useState(0);
   const [chainNote, setChainNote] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
+  const payingSeconds = useElapsedSeconds(paying);
   const payingRef = useRef(false);
   // A carrying link brings its bill with it. Import it once so
   // this device can show and pay it. Old short links fall back
@@ -217,6 +219,13 @@ export default function Pay({ store, id }: { store: Store; id: string }) {
         </p>
       )}
       {chainNote !== null && <p style={{ fontSize: 18 }}>{chainNote}</p>}
+      {paying && (
+        <p style={{ fontSize: 18 }}>
+          Paying on the network. Building your private proof, which is
+          the slow part. {payingSeconds} seconds so far, and it can take
+          around half a minute. Do not close this page.
+        </p>
+      )}
       {shownPaid ? (
         <p style={{ fontSize: 22 }}>Paid. Thank you.</p>
       ) : linked?.workerAddress && !hasChainSession() ? (

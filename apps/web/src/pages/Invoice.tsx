@@ -7,6 +7,7 @@ import {
 } from "../chain/session";
 import RoleBoundary from "./RoleBoundary";
 import { copyText } from "./copyText";
+import { useElapsedSeconds } from "./useElapsedSeconds";
 import type { Store } from "../domain/store";
 import {
   parseAmountInput,
@@ -24,13 +25,14 @@ export default function Invoice({ store }: { store: Store }) {
   const [chainNote, setChainNote] = useState<string | null>(null);
   const [issue, setIssue] = useState<InvoiceInputIssue | null>(null);
   const [writing, setWriting] = useState(false);
+  const writingSeconds = useElapsedSeconds(writing);
   const [failedInvoiceId, setFailedInvoiceId] = useState<string | null>(null);
   const busyRef = useRef(false);
   const lastSubmitRef = useRef<{ key: string; at: number } | null>(null);
 
   const writeOnNetwork = async (invoice: InvoiceRecord) => {
     setWriting(true);
-    setChainNote("Writing the bill on the network. This can take a few seconds.");
+    setChainNote("Writing the bill on the network.");
     // A bill that already holds a reserved number is being
     // retried, and a retry checks the network first. A bill
     // with no number yet is a first send.
@@ -201,7 +203,15 @@ export default function Invoice({ store }: { store: Store }) {
           Make invoice
         </button>
       </div>
-      {chainNote !== null && <p style={{ fontSize: 18 }}>{chainNote}</p>}
+      {writing ? (
+        <p style={{ fontSize: 18 }}>
+          Writing the bill on the network. Building your private proof,
+          which is the slow part. {writingSeconds} seconds so far, and it
+          can take around half a minute. Do not close this page.
+        </p>
+      ) : chainNote !== null ? (
+        <p style={{ fontSize: 18 }}>{chainNote}</p>
+      ) : null}
       {failedInvoiceId !== null && (
         <button
           style={{ fontSize: 18, padding: 12 }}
