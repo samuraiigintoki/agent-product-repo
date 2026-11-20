@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   createUserWallet,
   hasUserWallet,
@@ -8,13 +8,14 @@ import {
   removeUserWallet,
   restoreUserWallet,
   unlockUserWallet,
+  broadcastWalletLock,
   shortAddress,
   type WalletStorage,
 } from "../chain/userWallet";
 import {
+  connectedUserRole,
   dropChainSession,
   signInWithUserWallet,
-  workerIsUserWallet,
 } from "../chain/session";
 
 // The wallet area on the home page. Plain screens only: the
@@ -34,6 +35,9 @@ export default function WalletPanel({
   const [backupShown, setBackupShown] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const [confirmRestore, setConfirmRestore] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
 
   const refresh = () => setTick((value) => value + 1);
   void tick;
@@ -41,9 +45,24 @@ export default function WalletPanel({
   const hasWallet = hasUserWallet(storage);
   const walletOpen = isWalletOpen();
   const address = openWalletAddress();
+  const connectedRole = connectedUserRole();
 
   const fail = (error: unknown) => {
     setNote(error instanceof Error ? error.message : "Something went wrong.");
+  };
+
+  const runBusy = async (action: () => Promise<void>) => {
+    if (busyRef.current) {
+      return;
+    }
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      await action();
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
   };
 
   const create = async () => {
@@ -51,6 +70,7 @@ export default function WalletPanel({
       setNote("The two passwords do not match.");
       return;
     }
+    return runBusy(async () => {
     try {
       const created = await createUserWallet(password, storage);
       setBackupShown(created.backupCode);
@@ -61,9 +81,10 @@ export default function WalletPanel({
     } catch (error) {
       fail(error);
     }
+    });
   };
 
-  const unlock = async () => {
+  const unlock = async () => runBusy(async () => {
     try {
       await unlockUserWallet(password, storage);
       setPassword("");
@@ -72,31 +93,44 @@ export default function WalletPanel({
     } catch (error) {
       fail(error);
     }
-  };
+  });
 
-  const connect = async () => {
+  const connect = async (role: "worker" | "client") => runBusy(async () => {
     setNote("Connecting your wallet to the network. This can take a few seconds.");
     try {
-      await signInWithUserWallet();
+      await signInWithUserWallet(role);
       setNote(
-        "Your wallet is connected. New bills are written from your wallet, and the test network covers the fee while your wallet holds no fee money.",
+        role === "worker"
+          ? "Your wallet is connected to make bills. The test network covers the fee while your wallet holds no fee money."
+          : "Your wallet is connected to pay bills. The test network covers the fee while your wallet holds no fee money.",
       );
       refresh();
     } catch (error) {
       fail(error);
     }
-  };
+  });
 
   const restore = async () => {
+    if (hasWallet && !confirmRestore) {
+      setConfirmRestore(true);
+      setNote(
+        "Restoring will replace the wallet box on this device. Press the restore button again only if your backup code is for the wallet you want here.",
+      );
+      return;
+    }
+    return runBusy(async () => {
     try {
       await restoreUserWallet(backupInput, restorePassword, storage);
       setBackupInput("");
       setRestorePassword("");
+      setConfirmRestore(false);
+      await dropChainSession();
       setNote("Wallet restored and open.");
       refresh();
     } catch (error) {
       fail(error);
     }
+    });
   };
 
   const inputStyle = { fontSize: 18, padding: 10, width: "100%" } as const;
@@ -132,7 +166,7 @@ export default function WalletPanel({
               onChange={(event) => setPasswordAgain(event.target.value)}
             />
           </label>
-          <button style={buttonStyle} onClick={create}>
+          <button style={buttonStyle} disabled={busy} onClick={create}>
             Create my wallet
           </button>
           <label style={{ display: "grid", gap: 4, fontSize: 18 }}>
@@ -152,7 +186,7 @@ export default function WalletPanel({
               onChange={(event) => setRestorePassword(event.target.value)}
             />
           </label>
-          <button style={buttonStyle} onClick={restore}>
+          <button style={buttonStyle} disabled={busy} onClick={restore}>
             Restore my wallet
           </button>
         </div>
@@ -169,6 +203,7 @@ export default function WalletPanel({
           <p style={{ fontSize: 16, wordBreak: "break-all" }}>{backupShown}</p>
           <button
             style={buttonStyle}
+            disabled={busy}
             onClick={() => {
               setBackupShown(null);
               refresh();
@@ -190,9 +225,54 @@ export default function WalletPanel({
               onChange={(event) => setPassword(event.target.value)}
             />
           </label>
-          <button style={buttonStyle} onClick={unlock}>
+          <button style={buttonStyle} disabled={busy} onClick={unlock}>
             Unlock my wallet
           </button>
+          <p style={{ fontSize: 18, marginTop: 16 }}>
+            If the password does not work, you can restore from a
+            backup code or remove the wallet box from this device.
+          </p>
+          <label style={{ display: "grid", gap: 4, fontSize: 18 }}>
+            Backup code (only to restore a wallet)
+            <textarea
+              style={{ ...inputStyle, minHeight: 60 }}
+              value={backupInput}
+              onChange={(event) => setBackupInput(event.target.value)}
+            />
+          </label>
+          <label style={{ display: "grid", gap: 4, fontSize: 18 }}>
+            Password for that backup
+            <input
+              type="password"
+              style={inputStyle}
+              value={restorePassword}
+              onChange={(event) => setRestorePassword(event.target.value)}
+            />
+          </label>
+          <button style={buttonStyle} disabled={busy} onClick={restore}>
+            {confirmRestore ? "Yes, restore over this wallet" : "Restore my wallet"}
+          </button>
+          {!confirmRemove ? (
+            <button style={buttonStyle} disabled={busy} onClick={() => setConfirmRemove(true)}>
+              Remove wallet from this device
+            </button>
+          ) : (
+            <button
+              style={buttonStyle}
+              disabled={busy}
+              onClick={() => {
+                removeUserWallet(storage);
+                void dropChainSession();
+                setConfirmRemove(false);
+                setNote(
+                  "Wallet removed from this device. Your backup code can bring it back.",
+                );
+                refresh();
+              }}
+            >
+              Yes, remove it
+            </button>
+          )}
         </div>
       )}
 
@@ -202,21 +282,43 @@ export default function WalletPanel({
             Wallet open.
             {address ? ` Address: ${shortAddress(address)}` : ""}
           </p>
-          {workerIsUserWallet() ? (
-            <p style={{ fontSize: 18 }}>
-              Connected to the network as the worker. New bills are
-              written from this wallet.
-            </p>
-          ) : (
-            <button style={buttonStyle} onClick={connect}>
-              Connect my wallet to the network
-            </button>
+          {connectedRole === null && (
+            <>
+              <button style={buttonStyle} disabled={busy} onClick={() => connect("worker")}>
+                Connect to make bills
+              </button>
+              <button style={buttonStyle} disabled={busy} onClick={() => connect("client")}>
+                Connect to pay a bill
+              </button>
+            </>
+          )}
+          {connectedRole !== null && (
+            <>
+              <p style={{ fontSize: 18 }}>
+                {connectedRole === "worker"
+                  ? "Connected to make bills. New bills are written from this wallet."
+                  : "Connected to pay bills. You can pay a bill link with this wallet."}
+              </p>
+              <button
+                style={buttonStyle}
+                disabled={busy}
+                onClick={() => {
+                  void dropChainSession();
+                  setNote("Disconnected. Your wallet stays open.");
+                  refresh();
+                }}
+              >
+                Disconnect
+              </button>
+            </>
           )}
           <button
             style={buttonStyle}
+            disabled={busy}
             onClick={() => {
               lockUserWallet();
-              dropChainSession();
+              broadcastWalletLock();
+              void dropChainSession();
               setNote("Wallet locked. The network connection is closed too.");
               refresh();
             }}
@@ -224,15 +326,17 @@ export default function WalletPanel({
             Lock my wallet
           </button>
           {!confirmRemove ? (
-            <button style={buttonStyle} onClick={() => setConfirmRemove(true)}>
+            <button style={buttonStyle} disabled={busy} onClick={() => setConfirmRemove(true)}>
               Remove wallet from this device
             </button>
           ) : (
             <button
               style={buttonStyle}
+              disabled={busy}
               onClick={() => {
                 removeUserWallet(storage);
-                dropChainSession();
+                broadcastWalletLock();
+                void dropChainSession();
                 setConfirmRemove(false);
                 setNote(
                   "Wallet removed from this device. Your backup code can bring it back.",

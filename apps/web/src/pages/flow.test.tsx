@@ -45,7 +45,7 @@ describe("full click path with fake data", () => {
     expect(stored.claim.amount).toBeNull();
 
     goTo(`#/check/${stored.id}`);
-    expect(screen.getByText("Valid")).toBeTruthy();
+    expect(screen.getByText("Words match only")).toBeTruthy();
     expect(screen.getByText(/paid in full/)).toBeTruthy();
     expect(screen.queryByText(/1250/)).toBeNull();
   });

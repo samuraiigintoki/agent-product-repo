@@ -1,5 +1,7 @@
 export type InvoiceState = "unpaid" | "paid";
 
+export type InvoiceSide = "made" | "sent";
+
 export interface Invoice {
   id: string;
   workTitle: string;
@@ -8,7 +10,28 @@ export interface Invoice {
   state: InvoiceState;
   paidAmount: number | null;
   paidOn: string | null;
+  // True only when the network itself has said this bill is
+  // paid. A device only paid mark leaves this off, so the
+  // pay page can still offer the real network pay later.
+  paidOnNetwork?: boolean;
+  // Which side of the flow this bill belongs to on this
+  // device. Old stored bills have no mark and are read as
+  // made, because that was the only saved kind when they
+  // were written.
+  side?: InvoiceSide;
+  // Set only after the bill is written on the network. These
+  // two values are the public pay target for the final link.
+  // They are not keys and they do not unlock anything.
+  chainWorkerAddress?: string;
+  chainBillId?: number;
+  // The chain bill number reserved before a network write.
+  // It lets a failed or cut off write retry the same bill.
+  // It is not a final target until chainBillId is set.
+  chainAttemptBillId?: number;
 }
+
+export const MAX_WORK_TITLE_LENGTH = 120;
+export const MAX_CLIENT_MARK_LENGTH = 80;
 
 export interface CreateInvoiceInput {
   workTitle: string;
@@ -19,7 +42,7 @@ export interface CreateInvoiceInput {
 let nextId = 0;
 
 export interface InvoiceInputIssue {
-  field: "workTitle" | "amount";
+  field: "workTitle" | "amount" | "clientMark";
   message: string;
 }
 
@@ -39,18 +62,31 @@ export function parseAmountInput(text: string): number {
 export function validateInvoiceInput(input: {
   workTitle: string;
   amount: number;
+  clientMark?: string;
 }): InvoiceInputIssue | null {
   if (input.workTitle.trim() === "") {
     return { field: "workTitle", message: "Give the work a title." };
   }
+  if (input.workTitle.trim().length > MAX_WORK_TITLE_LENGTH) {
+    return {
+      field: "workTitle",
+      message: `Work title must be ${MAX_WORK_TITLE_LENGTH} characters or less.`,
+    };
+  }
   if (
     !Number.isFinite(input.amount) ||
-    !Number.isInteger(input.amount) ||
+    !Number.isSafeInteger(input.amount) ||
     input.amount <= 0
   ) {
     return {
       field: "amount",
       message: "Amount must be a whole number above zero, like 1250.",
+    };
+  }
+  if ((input.clientMark ?? "").trim().length > MAX_CLIENT_MARK_LENGTH) {
+    return {
+      field: "clientMark",
+      message: `Client name or mark must be ${MAX_CLIENT_MARK_LENGTH} characters or less.`,
     };
   }
   return null;
@@ -70,6 +106,7 @@ export function createInvoice(input: CreateInvoiceInput): Invoice {
     state: "unpaid",
     paidAmount: null,
     paidOn: null,
+    side: "made",
   };
 }
 
@@ -79,7 +116,13 @@ export function markPaid(
   paidOn: string,
 ): Invoice {
   if (paidAmount !== invoice.amount) {
-    return { ...invoice, state: "unpaid", paidAmount: null, paidOn: null };
+    return {
+      ...invoice,
+      state: "unpaid",
+      paidAmount: null,
+      paidOn: null,
+      paidOnNetwork: false,
+    };
   }
-  return { ...invoice, state: "paid", paidAmount, paidOn };
+  return { ...invoice, state: "paid", paidAmount, paidOn, paidOnNetwork: false };
 }

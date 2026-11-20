@@ -100,6 +100,31 @@ describe("invoice input checks (50 user run fixes)", () => {
     expect(validateInvoiceInput({ workTitle: "Job", amount: 100 })).toBeNull();
   });
 
+  it("rejects amounts that cannot stay exact", () => {
+    expect(
+      validateInvoiceInput({
+        workTitle: "Job",
+        amount: Number.MAX_SAFE_INTEGER + 1,
+      })?.field,
+    ).toBe("amount");
+  });
+
+  it("caps long titles and client marks", () => {
+    expect(
+      validateInvoiceInput({
+        workTitle: "x".repeat(121),
+        amount: 100,
+      })?.field,
+    ).toBe("workTitle");
+    expect(() =>
+      createInvoice({
+        workTitle: "Job",
+        amount: 100,
+        clientMark: "x".repeat(81),
+      }),
+    ).toThrow(/Client/);
+  });
+
   it("trims the title and client mark it stores", () => {
     const invoice = createInvoice({
       workTitle: "  Logo design  ",

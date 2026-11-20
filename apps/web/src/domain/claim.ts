@@ -35,10 +35,15 @@ export function createSinglePaymentClaim(
   showAmount: boolean,
   expiresAt: string,
 ): SinglePaymentClaim {
-  if (invoice.state !== "paid" || invoice.paidOn === null) {
+  if (invoice.state !== "paid") {
     throw new Error("Invoice is not paid in full, so no claim can be made.");
   }
-  const text = `This bill was paid in full on ${invoice.paidOn}.`;
+  // A network read can prove a bill was paid without giving
+  // this device the pay date. The claim then leaves the date
+  // out instead of guessing one.
+  const text = invoice.paidOn
+    ? `This bill was paid in full on ${invoice.paidOn}.`
+    : "This bill was paid in full.";
   const amount = showAmount ? invoice.amount : null;
   const base = { invoiceId: invoice.id, text, amount, expiresAt };
   return { ...base, seal: sealOf(base) };
@@ -48,6 +53,22 @@ export function checkClaim(
   claim: SinglePaymentClaim,
   now: string,
 ): ClaimCheck {
+  if (
+    !claim ||
+    typeof claim.invoiceId !== "string" ||
+    claim.invoiceId === "" ||
+    typeof claim.text !== "string" ||
+    !(claim.amount === null ||
+      (typeof claim.amount === "number" &&
+        Number.isSafeInteger(claim.amount) &&
+        claim.amount > 0)) ||
+    typeof claim.expiresAt !== "string" ||
+    Number.isNaN(Date.parse(claim.expiresAt)) ||
+    Number.isNaN(Date.parse(now)) ||
+    typeof claim.seal !== "string"
+  ) {
+    return "broken";
+  }
   const expected = sealOf({
     invoiceId: claim.invoiceId,
     text: claim.text,

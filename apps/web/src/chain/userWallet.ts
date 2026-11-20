@@ -24,6 +24,31 @@ export type WalletStorage = BoxStorage;
 let openMaterial: KeyMaterial | null = null;
 let openAddress: string | null = null;
 
+// Open actions run one at a time, and locking bumps the
+// generation. An unlock or restore that started before a
+// lock must not open the wallet after the lock has landed.
+let walletGeneration = 0;
+let walletOpenQueue: Promise<void> = Promise.resolve();
+
+function runWalletOpen<T>(task: () => Promise<T>): Promise<T> {
+  const run = walletOpenQueue.then(task, task);
+  walletOpenQueue = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+function throwIfWalletChanged(generation: number): void {
+  if (generation !== walletGeneration) {
+    openMaterial = null;
+    openAddress = null;
+    throw new Error(
+      "Your wallet was locked while it was opening. Unlock it again.",
+    );
+  }
+}
+
 export async function deriveWalletAddress(
   material: KeyMaterial,
 ): Promise<string> {
@@ -77,23 +102,34 @@ export async function createUserWallet(
   password: string,
   storage: WalletStorage = defaultStorage(),
 ): Promise<{ address: string; backupCode: string }> {
-  const material = createKeyMaterial();
-  const box = await sealKeyMaterial(material, password);
-  saveSealedBox(storage, box);
-  const address = await openWith(material);
-  return { address, backupCode: toBackupCode(box) };
+  const generation = walletGeneration;
+  return runWalletOpen(async () => {
+    const material = createKeyMaterial();
+    const box = await sealKeyMaterial(material, password);
+    saveSealedBox(storage, box);
+    throwIfWalletChanged(generation);
+    const address = await openWith(material);
+    throwIfWalletChanged(generation);
+    return { address, backupCode: toBackupCode(box) };
+  });
 }
 
 export async function unlockUserWallet(
   password: string,
   storage: WalletStorage = defaultStorage(),
 ): Promise<string> {
-  const box = loadSealedBox(storage);
-  if (box === null) {
-    throw new Error("No wallet on this device yet.");
-  }
-  const material = await openSealedBox(box, password);
-  return openWith(material);
+  const generation = walletGeneration;
+  return runWalletOpen(async () => {
+    const box = loadSealedBox(storage);
+    if (box === null) {
+      throw new Error("No wallet on this device yet.");
+    }
+    const material = await openSealedBox(box, password);
+    throwIfWalletChanged(generation);
+    const address = await openWith(material);
+    throwIfWalletChanged(generation);
+    return address;
+  });
 }
 
 export async function restoreUserWallet(
@@ -101,15 +137,40 @@ export async function restoreUserWallet(
   password: string,
   storage: WalletStorage = defaultStorage(),
 ): Promise<string> {
-  const material = await openBackupCode(backupCode, password);
-  const box = await sealKeyMaterial(material, password);
-  saveSealedBox(storage, box);
-  return openWith(material);
+  const generation = walletGeneration;
+  return runWalletOpen(async () => {
+    const material = await openBackupCode(backupCode, password);
+    throwIfWalletChanged(generation);
+    const box = await sealKeyMaterial(material, password);
+    saveSealedBox(storage, box);
+    throwIfWalletChanged(generation);
+    const address = await openWith(material);
+    throwIfWalletChanged(generation);
+    return address;
+  });
 }
 
 export function lockUserWallet(): void {
+  walletGeneration += 1;
   openMaterial = null;
   openAddress = null;
+}
+
+// Locking in one tab should lock the wallet in the other
+// tabs of this site too. This writes a plain time mark, and
+// nothing else, so other tabs can hear it through the
+// browser storage event. No key material ever rides in it.
+export const WALLET_LOCK_SIGNAL_KEY = "private-pay-proof.wallet-lock.v1";
+
+export function broadcastWalletLock(): void {
+  try {
+    window.localStorage.setItem(
+      WALLET_LOCK_SIGNAL_KEY,
+      `${Date.now()}-${Math.random()}`,
+    );
+  } catch {
+    // Storage may be blocked. This tab is still locked.
+  }
 }
 
 export function removeUserWallet(

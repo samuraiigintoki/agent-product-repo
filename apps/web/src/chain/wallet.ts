@@ -7,7 +7,7 @@ import { AztecAddress } from "@aztec-labs/aztec.js/addresses";
 import { Fq, Fr } from "@aztec-labs/foundation/curves/bn254";
 import type { FeePaymentMethod } from "@aztec-labs/aztec.js/fee";
 import artifactJson from "./payment_proof_artifact.json";
-import { AZTEC_CONTRACT_ADDRESS, AZTEC_NODE_URL } from "./settings";
+import { AZTEC_CONTRACT_ADDRESS, AZTEC_NODE_URL, isLocalNodeUrl } from "./settings";
 import { sponsoredFeeFor } from "./feeSponsor";
 import type { KeyMaterial } from "./keyVault";
 
@@ -22,13 +22,17 @@ export interface ChainSession {
   accounts: Record<Role, AztecAddress>;
   contracts: Record<Role, Contract>;
   contractAddress: AztecAddress;
-  // True when the worker is the user's own wallet, opened on
-  // this device. Then worker sends pay their fee through the
-  // test network sponsor (workerFee), because a fresh wallet
-  // holds no fee money yet. Test workers are pre funded and
-  // pay their own way, so workerFee stays null for them.
-  workerIsUser: boolean;
+  // The role the user's own wallet holds in this session, if
+  // any: "worker" when they make bills, "client" when they
+  // pay one. One session, one user role. Test accounts fill
+  // the rest only in code tests, never in the app flow (see
+  // the real flow plan, Task 5). Sends from the user role pay
+  // their fee through the test network sponsor (workerFee or
+  // clientFee), because a fresh wallet holds no fee money
+  // yet. Test accounts are pre funded and pay their own way.
+  userRole: Role | null;
   workerFee: FeePaymentMethod | null;
+  clientFee: FeePaymentMethod | null;
 }
 
 // Turns stored key strings back into chain key objects. Bad
@@ -51,20 +55,134 @@ function parseUserKeys(material: KeyMaterial): {
   }
 }
 
-// Sign in is test accounts only, on the local network, with fake
-// money. Each role gets its own wallet and private note store,
-// following the official two wallet guide: before a wallet can
-// see notes from a sender, it must register that sender, and
-// before it can call a contract, it must register the contract.
+// One actor on chain: a contract handle, the account acting,
+// and how its fees are paid. Chain calls take this, so the
+// same call works for the user's wallet in the app and for
+// test account actors in plumbing checks.
+export interface ActorSession {
+  nodeUrl: string;
+  contract: Contract;
+  account: AztecAddress;
+  fee: FeePaymentMethod | null;
+}
+
+// The app session: exactly ONE wallet, the user's own, in one
+// role. A browser allows only one wallet store per site, so
+// opening three wallet engines in one page (the old test
+// account habit) breaks with a store already in use error.
+// One wallet per page is both the browser rule and the real
+// product shape.
+export interface UserChainSession extends ActorSession {
+  wallet: EmbeddedWallet;
+  userRole: Role;
+  contractAddress: AztecAddress;
+}
+
+export async function createUserChainSession(
+  nodeUrl = AZTEC_NODE_URL,
+  material: KeyMaterial,
+  userRole: Role,
+): Promise<UserChainSession> {
+  const userKeys = parseUserKeys(material);
+
+  let node: ReturnType<typeof createAztecNodeClient>;
+  try {
+    node = createAztecNodeClient(nodeUrl);
+    await waitForNode(node);
+  } catch {
+    throw new Error("The network cannot be reached at this address.");
+  }
+
+  const wallet = await EmbeddedWallet.create(node, {
+    ephemeral: true,
+    // Proving off only on a local network, where unproven
+    // work is accepted. Public networks need real proofs.
+    pxe: { proverEnabled: !isLocalNodeUrl(nodeUrl) },
+  });
+  try {
+    const accountManager = await wallet.createSchnorrInitializerlessAccount(
+      userKeys.secret,
+      userKeys.salt,
+      userKeys.signingKey,
+    );
+    const account = accountManager.address;
+    const fee = await sponsoredFeeFor(wallet);
+
+    let contractAddress: AztecAddress;
+    let deployedHere = false;
+    if (AZTEC_CONTRACT_ADDRESS !== "") {
+      try {
+        contractAddress = AztecAddress.schema.parse(AZTEC_CONTRACT_ADDRESS);
+      } catch {
+        throw new Error("The contract address setting is not valid.");
+      }
+    } else {
+      const { contract } = await Contract.deploy(wallet, artifact, []).send({
+        from: account,
+        fee: { paymentMethod: fee },
+      });
+      contractAddress = contract.address;
+      deployedHere = true;
+    }
+
+    const instance = await node.getContract(contractAddress);
+    if (!instance) {
+      throw new Error("The contract cannot be seen on this network.");
+    }
+    if (!deployedHere) {
+      await wallet.registerContract(instance, artifact);
+    }
+    const contract = await Contract.at(contractAddress, artifact, wallet);
+
+    return {
+      nodeUrl,
+      wallet,
+      contract,
+      account,
+      fee,
+      userRole,
+      contractAddress,
+    };
+  } catch (error) {
+    await wallet.stop().catch(() => {});
+    throw error;
+  }
+}
+
+// PLUMBING ONLY: actor view of one role inside a test account
+// session, for code tests. The app never builds these; it
+// uses createUserChainSession above.
+export function actorFor(session: ChainSession, role: Role): ActorSession {
+  return {
+    nodeUrl: session.nodeUrl,
+    contract: session.contracts[role],
+    account: session.accounts[role],
+    fee:
+      role === "worker"
+        ? session.workerFee
+        : role === "client"
+          ? session.clientFee
+          : null,
+  };
+}
+
+// Builds one chain session. Each role gets its own wallet and
+// private note store, following the official two wallet guide:
+// before a wallet can see notes from a sender, it must register
+// that sender, and before it can call a contract, it must
+// register the contract.
 //
-// When userMaterial is given, the worker is the user's own
-// wallet instead of the test worker. Client and other stay
-// test accounts until they get their own wallet slice. The
-// user's key material is used only inside this call and inside
-// the session wallet it creates; it is never logged or stored.
+// In the app this is only ever called with userMaterial, so
+// the role named by userRole is the user's own wallet. Called
+// without userMaterial it builds shared test accounts, and
+// that path exists for code tests only (plumbing checks). No
+// app screen can reach it. The user's key material is used
+// only inside this call and inside the session wallet it
+// creates; it is never logged or stored.
 export async function createChainSession(
   nodeUrl = AZTEC_NODE_URL,
   userMaterial?: KeyMaterial,
+  userRole: Role = "worker",
 ): Promise<ChainSession> {
   const userKeys = userMaterial ? parseUserKeys(userMaterial) : null;
 
@@ -79,10 +197,12 @@ export async function createChainSession(
     const role = ROLES[i];
     const wallet = await EmbeddedWallet.create(node, {
       ephemeral: true,
-      pxe: { proverEnabled: false },
+      // Proving off only on a local network, where unproven
+      // work is accepted. Public networks need real proofs.
+      pxe: { proverEnabled: !isLocalNodeUrl(nodeUrl) },
     });
     const account =
-      role === "worker" && userKeys
+      role === userRole && userKeys
         ? await wallet.createSchnorrInitializerlessAccount(
             userKeys.secret,
             userKeys.salt,
@@ -97,7 +217,9 @@ export async function createChainSession(
     accounts[role] = account.address;
   }
 
-  const workerFee = userKeys ? await sponsoredFeeFor(wallets.worker) : null;
+  const userFee = userKeys ? await sponsoredFeeFor(wallets[userRole]) : null;
+  const workerFee = userRole === "worker" ? userFee : null;
+  const clientFee = userRole === "client" ? userFee : null;
   const workerSendFee = workerFee
     ? { fee: { paymentMethod: workerFee } }
     : {};
@@ -144,7 +266,8 @@ export async function createChainSession(
     accounts,
     contracts,
     contractAddress,
-    workerIsUser: userKeys !== null,
+    userRole: userKeys ? userRole : null,
     workerFee,
+    clientFee,
   };
 }

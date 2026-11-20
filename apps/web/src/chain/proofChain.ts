@@ -5,7 +5,7 @@ import {
   type SinglePaymentClaim,
 } from "../domain/claim";
 import type { Invoice } from "../domain/invoice";
-import type { ChainSession } from "./wallet";
+import type { ActorSession } from "./wallet";
 
 // Expiry travels on chain as one plain number, YYYYMMDD, so a
 // person can read it and compare it without special tools.
@@ -43,35 +43,33 @@ export function claimHash(claim: SinglePaymentClaim, billId: number): bigint {
 }
 
 export async function markProofOnChain(
-  session: ChainSession,
+  actor: ActorSession,
   claim: SinglePaymentClaim,
   billId: number,
 ): Promise<void> {
-  await session.contracts.worker.methods
+  await actor.contract.methods
     .mark_proof(claimHash(claim, billId), expiryNumber(claim.expiresAt))
     .send({
-      from: session.accounts.worker,
-      ...(session.workerFee
-        ? { fee: { paymentMethod: session.workerFee } }
-        : {}),
+      from: actor.account,
+      ...(actor.fee ? { fee: { paymentMethod: actor.fee } } : {}),
     });
 }
 
 export async function readProofExpiryOnChain(
-  session: ChainSession,
+  actor: ActorSession,
   claim: SinglePaymentClaim,
   billId: number,
 ): Promise<number> {
-  const { result } = await session.contracts.worker.methods
+  const { result } = await actor.contract.methods
     .proof_expiry(claimHash(claim, billId))
-    .simulate({ from: session.accounts.worker });
+    .simulate({ from: actor.account });
   return Number(result as bigint);
 }
 
 // Valid only when the claim words check out, the public mark is
 // on chain with the same expiry, and today is not past expiry.
 export async function checkProof(
-  session: ChainSession,
+  actor: ActorSession,
   claim: SinglePaymentClaim,
   billId: number,
   now: string,
@@ -80,7 +78,7 @@ export async function checkProof(
   if (words !== "valid") {
     return words;
   }
-  const stored = await readProofExpiryOnChain(session, claim, billId);
+  const stored = await readProofExpiryOnChain(actor, claim, billId);
   if (stored !== expiryNumber(claim.expiresAt)) {
     return "broken";
   }
