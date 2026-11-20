@@ -9,6 +9,10 @@ const chain = vi.hoisted(() => ({
 
 vi.mock("../chain/session", () => ({
   hasChainSession: () => true,
+  connectedUserRole: () => "client",
+  connectedAccountAddress: () => `0x${"0".repeat(60)}babe`,
+  dropChainSession: async () => {},
+  signInWithUserWallet: async () => {},
   checkInvoicePaidLive: async () => {
     chain.checks += 1;
     return chain.behavior === "landed" && chain.checks > 1;

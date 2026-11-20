@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import App from "../App";
 import Pay from "./Pay";
 import { createStore, type BillStorage } from "../domain/store";
@@ -37,11 +37,16 @@ describe("pay truth without a wallet session", () => {
     const client = createStore(memoryStorage());
     window.location.hash = `#/pay/${link}`;
     render(<App store={client} />);
-    fireEvent.click(screen.getByRole("button", { name: "Pay this bill" }));
 
+    // No pay button is offered before a client wallet is
+    // connected, so the paid mark cannot be spent here.
+    expect(screen.queryByRole("button", { name: "Pay this bill" })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Go to the home page" }),
+    ).toBeTruthy();
     expect(client.getInvoice(invoice.id)?.state).toBe("unpaid");
     expect(screen.queryByText(/Paid\\. Thank you/)).toBeNull();
-    expect(screen.getByText(/was not marked paid/)).toBeTruthy();
+    expect(screen.getByText(/Connect your wallet as client/)).toBeTruthy();
   });
 
   it("stops when a link clashes with a bill already on this device", () => {

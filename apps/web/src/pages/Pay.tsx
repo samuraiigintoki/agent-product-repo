@@ -1,12 +1,24 @@
 import { useRef, useState } from "react";
 import {
   checkInvoicePaidLive,
+  connectedAccountAddress,
+  connectedUserRole,
+  dropChainSession,
   hasChainSession,
   payInvoiceLive,
+  signInWithUserWallet,
 } from "../chain/session";
 import type { Store } from "../domain/store";
 import { decodePayLink } from "../domain/payLink";
 import { shortAddress } from "../chain/userWallet";
+import { copyText } from "./copyText";
+
+const mainStyle = {
+  fontFamily: "sans-serif",
+  maxWidth: 640,
+  margin: "40px auto",
+  padding: 16,
+} as const;
 
 export default function Pay({ store, id }: { store: Store; id: string }) {
   const [, setPaidTick] = useState(0);
@@ -61,6 +73,121 @@ export default function Pay({ store, id }: { store: Store; id: string }) {
     );
   }
 
+  // The role boundary for network links. A network link is
+  // paid by a client wallet, never by the worker side. The
+  // screens below replace the pay form entirely, so the
+  // wrong role is stopped here, not after a failed click.
+  // The session layer refuses these paths too.
+  const role = connectedUserRole();
+  const account = connectedAccountAddress();
+  const switchToClient = async () => {
+    try {
+      await dropChainSession();
+      await signInWithUserWallet("client");
+      setChainNote(null);
+      setPaidTick((tick) => tick + 1);
+    } catch (error) {
+      setChainNote(
+        error instanceof Error ? error.message : "Something went wrong.",
+      );
+    }
+  };
+
+  if (linked?.workerAddress && role === "worker") {
+    const ownBill =
+      account !== null &&
+      account.toLowerCase() === linked.workerAddress.toLowerCase();
+    if (ownBill) {
+      const fullLink = `#/pay/${id}`;
+      return (
+        <main style={mainStyle}>
+          <h1 style={{ fontSize: 28 }}>This is your bill link</h1>
+          <p style={{ fontSize: 22 }}>{invoice.workTitle}</p>
+          <p style={{ fontSize: 22 }}>Amount: {invoice.amount}</p>
+          <p style={{ fontSize: 18 }}>
+            Send this link to your client. They open it in their own
+            browser and pay there. You cannot pay your own bill.
+          </p>
+          <p style={{ fontSize: 18, wordBreak: "break-all" }}>{fullLink}</p>
+          <div style={{ display: "grid", gap: 12 }}>
+            <button
+              style={{ fontSize: 20, padding: 14 }}
+              onClick={async () => {
+                setChainNote(
+                  (await copyText(fullLink))
+                    ? "Link copied."
+                    : "Copy the link above by hand.",
+                );
+              }}
+            >
+              Copy link
+            </button>
+            <button
+              style={{ fontSize: 20, padding: 14 }}
+              onClick={() => {
+                window.location.hash = "#/mypay";
+              }}
+            >
+              Open My pay
+            </button>
+          </div>
+          {chainNote !== null && <p style={{ fontSize: 18 }}>{chainNote}</p>}
+        </main>
+      );
+    }
+    return (
+      <main style={mainStyle}>
+        <h1 style={{ fontSize: 28 }}>This wallet is connected to make bills</h1>
+        <p style={{ fontSize: 18 }}>
+          To pay this bill, switch this wallet to paying bills. Your
+          wallet stays open. Only the network role changes.
+        </p>
+        <div style={{ display: "grid", gap: 12 }}>
+          <button
+            style={{ fontSize: 20, padding: 14 }}
+            onClick={() => void switchToClient()}
+          >
+            Switch to paying bills
+          </button>
+          <button
+            style={{ fontSize: 20, padding: 14 }}
+            onClick={() => {
+              window.location.hash = "#/";
+            }}
+          >
+            Go home
+          </button>
+        </div>
+        {chainNote !== null && <p style={{ fontSize: 18 }}>{chainNote}</p>}
+      </main>
+    );
+  }
+
+  if (
+    linked?.workerAddress &&
+    role === "client" &&
+    account !== null &&
+    account.toLowerCase() === linked.workerAddress.toLowerCase()
+  ) {
+    return (
+      <main style={mainStyle}>
+        <h1 style={{ fontSize: 28 }}>You cannot pay your own bill</h1>
+        <p style={{ fontSize: 18 }}>
+          This bill pays your own wallet. Send the link to your client
+          instead. They pay it from their wallet.
+        </p>
+        <button
+          style={{ fontSize: 20, padding: 14 }}
+          onClick={() => {
+            window.location.hash = "#/mypay";
+          }}
+        >
+          Open My pay
+        </button>
+      </main>
+    );
+  }
+
   return (
     <main style={{ fontFamily: "sans-serif", maxWidth: 640, margin: "40px auto", padding: 16 }}>
       <h1 style={{ fontSize: 28 }}>Pay this bill</h1>
@@ -92,6 +219,18 @@ export default function Pay({ store, id }: { store: Store; id: string }) {
       {chainNote !== null && <p style={{ fontSize: 18 }}>{chainNote}</p>}
       {shownPaid ? (
         <p style={{ fontSize: 22 }}>Paid. Thank you.</p>
+      ) : linked?.workerAddress && !hasChainSession() ? (
+        // A network link with no wallet connected gets the
+        // way home, not a pay button. The bill stays unpaid
+        // until a client wallet pays it on the network.
+        <button
+          style={{ fontSize: 20, padding: 14 }}
+          onClick={() => {
+            window.location.hash = "#/";
+          }}
+        >
+          Go to the home page
+        </button>
       ) : (
         <button
           style={{ fontSize: 20, padding: 14 }}

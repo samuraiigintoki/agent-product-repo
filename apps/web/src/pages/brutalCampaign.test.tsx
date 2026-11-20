@@ -18,6 +18,11 @@ const chain = vi.hoisted(() => ({
 
 vi.mock("../chain/session", () => ({
   hasChainSession: () => chain.session,
+  connectedUserRole: () => (chain.session ? "client" : null),
+  connectedAccountAddress: () =>
+    chain.session ? `0x${"0".repeat(60)}babe` : null,
+  dropChainSession: async () => {},
+  signInWithUserWallet: async () => {},
   checkInvoicePaidLive: async () => chain.paidOnChain,
   payInvoiceLive: async () => {
     chain.payCalls += 1;
