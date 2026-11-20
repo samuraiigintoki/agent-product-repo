@@ -10,6 +10,7 @@ import artifactJson from "./payment_proof_artifact.json";
 import { AZTEC_CONTRACT_ADDRESS, AZTEC_NODE_URL, isLocalNodeUrl } from "./settings";
 import { sponsoredFeeFor } from "./feeSponsor";
 import type { KeyMaterial } from "./keyVault";
+import { chainStoreOverrides, plainChainError } from "./browserStore";
 
 const artifact = loadContractArtifact(artifactJson as unknown as NoirCompiledContract);
 
@@ -93,12 +94,25 @@ export async function createUserChainSession(
     throw new Error("The network cannot be reached at this address.");
   }
 
-  const wallet = await EmbeddedWallet.create(node, {
-    ephemeral: true,
-    // Proving off only on a local network, where unproven
-    // work is accepted. Public networks need real proofs.
-    pxe: { proverEnabled: !isLocalNodeUrl(nodeUrl) },
-  });
+  // In a browser that refuses the normal wallet storage,
+  // this hands the engine a fallback store instead. It is
+  // null everywhere else, including all Node test runs.
+  const overrides = await chainStoreOverrides();
+  let wallet: EmbeddedWallet;
+  try {
+    wallet = await EmbeddedWallet.create(node, {
+      ephemeral: true,
+      // Proving off only on a local network, where unproven
+      // work is accepted. Public networks need real proofs.
+      pxe: {
+        proverEnabled: !isLocalNodeUrl(nodeUrl),
+        ...(overrides ? { store: overrides.pxeStore } : {}),
+      },
+      ...(overrides ? { walletDb: { store: overrides.walletStore } } : {}),
+    });
+  } catch (error) {
+    throw plainChainError(error);
+  }
   try {
     const accountManager = await wallet.createSchnorrInitializerlessAccount(
       userKeys.secret,
