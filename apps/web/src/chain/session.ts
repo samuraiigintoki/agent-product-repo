@@ -221,6 +221,13 @@ export async function createInvoiceLive(input: {
   webInvoiceId: string;
   amount: number;
   billId?: number;
+  // True only when this send retries a bill that already
+  // holds a reserved number. The already written check
+  // costs a network read, so a first send skips it: the
+  // number was reserved in this same flow and the answer
+  // is known. A passed billId without this word still
+  // checks, which is the safe default for other callers.
+  checkExisting?: boolean;
 }): Promise<ChainBillTarget | null> {
   if (!session) {
     return null;
@@ -249,11 +256,15 @@ export async function createInvoiceLive(input: {
   );
   // A retry after a lost reply can find the first write
   // already on the network. That is done, not a fault.
-  const alreadyMade = await readInvoiceMadeOnChain(
-    session,
-    session.account,
-    target.billId,
-  ).catch(() => false);
+  // Only a retry pays for that network read.
+  const shouldCheck = input.checkExisting ?? input.billId !== undefined;
+  const alreadyMade = shouldCheck
+    ? await readInvoiceMadeOnChain(
+        session,
+        session.account,
+        target.billId,
+      ).catch(() => false)
+    : false;
   if (!alreadyMade) {
     if (session !== activeSession || !isWalletOpen()) {
       throw new Error(
@@ -274,10 +285,16 @@ export async function createInvoiceLive(input: {
   return target;
 }
 
+// The account address of the live session, whichever role
+// it holds. Pages use this to tell the two roles apart.
+export function connectedAccountAddress(): string | null {
+  return session ? session.account.toString() : null;
+}
+
 // The worker address of the live session, so the invoice
 // page can put the real pay targets into a version 2 link.
 export function chainWorkerAddress(): string | null {
-  return session ? session.account.toString() : null;
+  return connectedAccountAddress();
 }
 
 export async function payInvoiceLive(input: {
@@ -302,6 +319,15 @@ export async function payInvoiceLive(input: {
   throwIfUserWalletLocked();
   if (!input.workerAddress) {
     return null;
+  }
+  // A wallet never pays its own bill. The pay page does not
+  // offer it, and this is the second lock in case a screen
+  // path is ever bypassed.
+  if (
+    session.account.toString().toLowerCase() ===
+    input.workerAddress.toLowerCase()
+  ) {
+    throw new Error("This is your own bill. You cannot pay your own bill.");
   }
   const { payInvoiceOnChain } = await import("./payChain");
   const { AztecAddress } = await import("@aztec-labs/aztec.js/addresses");

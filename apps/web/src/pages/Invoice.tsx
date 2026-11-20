@@ -28,6 +28,10 @@ export default function Invoice({ store }: { store: Store }) {
   const writeOnNetwork = async (invoice: InvoiceRecord) => {
     setWriting(true);
     setChainNote("Writing the bill on the network. This can take a few seconds.");
+    // A bill that already holds a reserved number is being
+    // retried, and a retry checks the network first. A bill
+    // with no number yet is a first send.
+    const isRetry = invoice.chainAttemptBillId !== undefined;
     try {
       const attempt =
         invoice.chainAttemptBillId && invoice.chainWorkerAddress
@@ -47,6 +51,7 @@ export default function Invoice({ store }: { store: Store }) {
         webInvoiceId: invoice.id,
         amount: invoice.amount,
         billId: attempt.billId,
+        checkExisting: isRetry,
       });
       if (!target) {
         throw new Error("No network session.");

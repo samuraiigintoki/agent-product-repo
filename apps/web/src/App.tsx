@@ -83,6 +83,7 @@ export default function App({ store }: { store: Store }) {
           createInvoiceLive({
             webInvoiceId: bill.id,
             amount: bill.amount,
+            checkExisting: bill.chainAttemptBillId !== undefined,
             ...(bill.chainAttemptBillId
               ? { billId: bill.chainAttemptBillId }
               : {}),
